@@ -115,7 +115,23 @@ export async function executeTask(
   }
 
   try {
-    const result = await executeTaskAsync(taskId, params, blockId, deps);
+    const MCP_RESPONSE_TIMEOUT = 25000;
+    const timeoutPromise = new Promise<Record<string, unknown>>((resolve) => {
+      setTimeout(() => {
+        resolve({
+          task_id: taskId,
+          status: "running",
+          workspace_block_id: blockId,
+          message: "Task started but execution is taking longer than expected. Use get_task_status to check progress.",
+          timeout_hint: "Response timeout reached, task continues in background",
+        });
+      }, MCP_RESPONSE_TIMEOUT);
+    });
+
+    const result = await Promise.race([
+      executeTaskAsync(taskId, params, blockId, deps),
+      timeoutPromise,
+    ]);
     return result;
   } catch (error) {
     return {
