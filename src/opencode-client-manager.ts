@@ -61,8 +61,13 @@ export class OpenCodeClientManager {
         },
       });
 
+      const sessionId = sessionResponse.data?.id || sessionResponse.id;
+      if (!sessionId) {
+        throw new Error(`Session creation failed: no ID returned`);
+      }
+
       const session: OpenCodeSession = {
-        sessionId: sessionResponse.id,
+        sessionId,
         taskId,
         agentId,
         startedAt: Date.now(),
@@ -84,8 +89,8 @@ Task ID: ${taskId}
 Calling Agent ID: ${agentId}`;
 
       // Send initial prompt
-      console.log(`[opencode-client] Sending prompt to session ${sessionResponse.id}`);
-      await this.client.session.prompt(sessionResponse.id, {
+      console.log(`[opencode-client] Sending prompt to session ${sessionId}`);
+      await this.client.session.prompt(sessionId, {
         model: {
           providerID: "anthropic",
           modelID: "claude-sonnet-4-5-20250929"
