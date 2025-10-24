@@ -104,10 +104,81 @@ describe("OpenCodeClientManager", () => {
   });
 
   describe("createSession", () => {
+    it("should extract session ID from SDK response.data.id format", async () => {
+      // Guard against SDK response format regression
+      // The SDK returns {data: {id: "ses_xxx", ...}, request: {}, response: {}}
+      mockClient.session.create.mockResolvedValue({
+        data: {
+          id: "ses_test123",
+          version: "0.15.0",
+          projectID: "global",
+          directory: "/workspace",
+          title: "Task: task-123",
+          time: {
+            created: Date.now(),
+            updated: Date.now(),
+          },
+        },
+        request: {},
+        response: {},
+      });
+
+      mockClient.session.prompt.mockResolvedValue({});
+
+      const session = await manager.createSession(
+        "task-123",
+        "agent-456",
+        "Test prompt"
+      );
+
+      expect(session.sessionId).toBe("ses_test123");
+      expect(session.taskId).toBe("task-123");
+      expect(session.agentId).toBe("agent-456");
+      expect(session.status).toBe("active");
+    });
+
+    it("should handle legacy format with direct id property", async () => {
+      // Fallback for if SDK changes to return id directly
+      mockClient.session.create.mockResolvedValue({
+        id: "session-legacy",
+        status: "active",
+      });
+
+      mockClient.session.prompt.mockResolvedValue({});
+
+      const session = await manager.createSession(
+        "task-legacy",
+        "agent-456",
+        "Test prompt"
+      );
+
+      expect(session.sessionId).toBe("session-legacy");
+    });
+
+    it("should throw error when no session ID is returned", async () => {
+      // Guard against malformed SDK responses
+      mockClient.session.create.mockResolvedValue({
+        data: {
+          version: "0.15.0",
+          // Missing 'id' field
+        },
+      });
+
+      await expect(
+        manager.createSession("task-123", "agent-456", "Test prompt")
+      ).rejects.toThrow("Session creation failed: no ID returned");
+    });
+
     it("should create session with task details", async () => {
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+          version: "0.15.0",
+          projectID: "global",
+          directory: "/workspace",
+          title: "Task: task-123",
+          time: { created: Date.now(), updated: Date.now() },
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
