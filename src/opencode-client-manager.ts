@@ -90,12 +90,15 @@ Calling Agent ID: ${agentId}`;
 
       // Send initial prompt
       console.log(`[opencode-client] Sending prompt to session ${sessionId}`);
-      await this.client.session.prompt(sessionId, {
-        model: {
-          providerID: "anthropic",
-          modelID: "claude-sonnet-4-5-20250929"
+      await this.client.session.prompt({
+        path: { id: sessionId },
+        body: {
+          model: {
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-5-20250929"
+          },
+          parts: [{ type: "text", text: enhancedPrompt }],
         },
-        parts: [{ type: "text", text: enhancedPrompt }],
       });
 
       return session;
@@ -176,18 +179,20 @@ Calling Agent ID: ${agentId}`;
   }
 
   async sendMessage(sessionId: string, message: string): Promise<void> {
-    const response = await fetch(
-      `${this.config.serverUrl}/session/${sessionId}/message`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      }
-    );
-
-    if (!response.ok) {
+    try {
+      await this.client.session.prompt({
+        path: { id: sessionId },
+        body: {
+          model: {
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-5-20250929"
+          },
+          parts: [{ type: "text", text: message }],
+        },
+      });
+    } catch (error) {
       throw new Error(
-        `Failed to send message: ${response.status} ${response.statusText}`
+        `Failed to send message: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
