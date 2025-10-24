@@ -73,15 +73,13 @@ Task ID: ${taskId}
 Calling Agent ID: ${agentId}`;
 
       // Send initial prompt
-      await this.client.session.prompt({
-        path: { id: sessionResponse.id },
-        body: {
-          model: {
-            providerID: "anthropic",
-            modelID: "claude-sonnet-4-5-20250929"
-          },
-          parts: [{ type: "text", text: enhancedPrompt }],
+      console.log(`[opencode-client] Sending prompt to session ${sessionResponse.id}`);
+      await this.client.session.prompt(sessionResponse.id, {
+        model: {
+          providerID: "anthropic",
+          modelID: "claude-sonnet-4-5-20250929"
         },
+        parts: [{ type: "text", text: enhancedPrompt }],
       });
 
       return session;

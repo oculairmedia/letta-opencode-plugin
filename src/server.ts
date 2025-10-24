@@ -383,6 +383,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === "opencode_execute_task") {
+      console.log(`[server] Executing opencode_execute_task with args:`, JSON.stringify(args));
       const params = ExecuteTaskSchema.parse(args) as ExecuteTaskParams;
       const result = await executeTask(params, {
         letta: deps.letta,
@@ -391,6 +392,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         registry: deps.registry,
         matrix: deps.matrix,
       });
+      console.log(`[server] opencode_execute_task result:`, JSON.stringify(result));
 
       return {
         content: [

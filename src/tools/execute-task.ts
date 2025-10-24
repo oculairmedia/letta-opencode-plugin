@@ -70,14 +70,29 @@ export async function executeTask(
     };
   }
 
-  const { blockId, workspace } = await deps.workspace.createWorkspaceBlock({
-    task_id: taskId,
-    agent_id: params.agent_id,
-    metadata: {
-      task_description: params.task_description,
-      idempotency_key: params.idempotency_key,
-    },
-  });
+  let blockId: string;
+  let workspace: any;
+  
+  try {
+    const result = await deps.workspace.createWorkspaceBlock({
+      task_id: taskId,
+      agent_id: params.agent_id,
+      metadata: {
+        task_description: params.task_description,
+        idempotency_key: params.idempotency_key,
+      },
+    });
+    blockId = result.blockId;
+    workspace = result.workspace;
+    console.log(`[execute-task] Created workspace block ${blockId} for task ${taskId}`);
+  } catch (error) {
+    console.error(`[execute-task] Failed to create workspace block for task ${taskId}:`, error);
+    return {
+      task_id: taskId,
+      status: "failed",
+      error: `Failed to create workspace block: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
 
   deps.registry.updateStatus(taskId, "queued", { workspaceBlockId: blockId });
 
