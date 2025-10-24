@@ -1,9 +1,8 @@
 services:
   letta-opencode-plugin:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/oculairmedia/letta-opencode-plugin:latest
     container_name: letta-opencode-plugin
+    pull_policy: always
     ports:
       - "${MCP_PORT:-3500}:3500"
     restart: unless-stopped
@@ -39,10 +38,9 @@ services:
       - matrix
 
   opencode-server:
-    build:
-      context: .
-      dockerfile: Dockerfile.opencode
+    image: ghcr.io/oculairmedia/letta-opencode-plugin-opencode-server:latest
     container_name: opencode-server
+    pull_policy: always
     ports:
       - "3100:3100"
     restart: unless-stopped
