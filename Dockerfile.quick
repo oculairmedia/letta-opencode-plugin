@@ -1,0 +1,2 @@
+FROM letta-opencode-plugin-letta-opencode-plugin:latest
+COPY dist /app/dist

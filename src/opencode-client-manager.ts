@@ -1,0 +1,220 @@
+// @ts-ignore - SDK has no TypeScript definitions
+import { createOpencodeClient } from "@opencode-ai/sdk";
+import type {
+  OpenCodeServerConfig,
+  OpenCodeSession,
+  OpenCodeEvent,
+  SessionInfo,
+} from "./types/opencode.js";
+
+export class OpenCodeClientManager {
+  private config: OpenCodeServerConfig;
+  private activeSessions: Map<string, OpenCodeSession> = new Map();
+  private client: any;
+
+  constructor(config: OpenCodeServerConfig) {
+    this.config = config;
+    this.client = createOpencodeClient({
+      baseUrl: config.serverUrl,
+    });
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.config.serverUrl}/config`, {
+        method: "GET",
+        signal: AbortSignal.timeout(5000),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("[OpenCodeClient] Health check failed:", error);
+      return false;
+    }
+  }
+
+  async createSession(
+    taskId: string,
+    agentId: string,
+    prompt: string,
+    workingDir?: string
+  ): Promise<OpenCodeSession> {
+    try {
+      const sessionResponse = await this.client.session.create({
+        body: {
+          title: `Task: ${taskId}`,
+          metadata: {
+            taskId,
+            agentId,
+            workingDir: workingDir || "/workspace",
+          },
+        },
+      });
+
+      const session: OpenCodeSession = {
+        sessionId: sessionResponse.id,
+        taskId,
+        agentId,
+        startedAt: Date.now(),
+        status: "active",
+      };
+
+      this.activeSessions.set(taskId, session);
+
+      // Build enhanced prompt with instructions to communicate back to Letta
+      const enhancedPrompt = `${prompt}
+
+IMPORTANT: When you complete this task, you MUST send a message back to the calling Letta agent (ID: ${agentId}) with a summary of what you accomplished. Use the available Letta MCP tools to send a message with:
+- A brief summary of what you did
+- The status (success or failure)
+- Any important outputs or files created
+- Any issues encountered
+
+Task ID: ${taskId}
+Calling Agent ID: ${agentId}`;
+
+      // Send initial prompt
+      await this.client.session.prompt({
+        path: { id: sessionResponse.id },
+        body: {
+          model: {
+            providerID: "anthropic",
+            modelID: "claude-sonnet-4-5-20250929"
+          },
+          parts: [{ type: "text", text: enhancedPrompt }],
+        },
+      });
+
+      return session;
+    } catch (error) {
+      throw new Error(
+        `Failed to create session: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async subscribeToEvents(
+    sessionId: string,
+    onEvent: (event: OpenCodeEvent) => void,
+    onError?: (error: Error) => void
+  ): Promise<void> {
+    try {
+      const events = await this.client.event.subscribe();
+      
+      (async () => {
+        try {
+          for await (const event of events.stream) {
+            // Filter events for this session
+            if (event.properties?.sessionId === sessionId) {
+              const openCodeEvent: OpenCodeEvent = {
+                type: event.type as any,
+                timestamp: Date.now(),
+                sessionId,
+                data: event.properties,
+              };
+              onEvent(openCodeEvent);
+            }
+          }
+        } catch (error) {
+          console.error("[OpenCodeClient] Event stream error:", error);
+          if (onError) {
+            onError(error instanceof Error ? error : new Error(String(error)));
+          }
+        }
+      })();
+    } catch (error) {
+      console.error("[OpenCodeClient] Failed to subscribe to events:", error);
+      if (onError) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+  }
+
+  async getSessionInfo(sessionId: string): Promise<SessionInfo> {
+    try {
+      const session = await this.client.session.get({
+        path: { id: sessionId },
+      });
+
+      return {
+        sessionId: session.id,
+        status: session.status || "active",
+        files: [], // Would need to query file.status() separately
+        output: "", // Would need to get from messages
+        error: session.error,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get session info: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async abortSession(sessionId: string): Promise<void> {
+    try {
+      await this.client.session.abort({
+        path: { id: sessionId },
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to abort session: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async sendMessage(sessionId: string, message: string): Promise<void> {
+    const response = await fetch(
+      `${this.config.serverUrl}/session/${sessionId}/message`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to send message: ${response.status} ${response.statusText}`
+      );
+    }
+  }
+
+  async listFiles(sessionId: string, path: string = "/"): Promise<string[]> {
+    try {
+      const files = await this.client.file.status({
+        query: path !== "/" ? { path } : undefined,
+      });
+
+      return files.map((f: any) => f.path);
+    } catch (error) {
+      throw new Error(
+        `Failed to list files: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async readFile(sessionId: string, filePath: string): Promise<string> {
+    try {
+      const fileData = await this.client.file.read({
+        query: { path: filePath },
+      });
+
+      return fileData.content;
+    } catch (error) {
+      throw new Error(
+        `Failed to read file: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  getActiveSession(taskId: string): OpenCodeSession | undefined {
+    return this.activeSessions.get(taskId);
+  }
+
+  removeSession(taskId: string): void {
+    this.activeSessions.delete(taskId);
+  }
+
+  cleanup(): void {
+    this.activeSessions.clear();
+  }
+}

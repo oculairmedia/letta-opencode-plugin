@@ -1,0 +1,73 @@
+services:
+  letta-opencode-plugin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: letta-opencode-plugin
+    ports:
+      - "${MCP_PORT:-3500}:3500"
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - LETTA_API_URL=${LETTA_API_URL}
+      - LETTA_API_TOKEN=${LETTA_API_TOKEN}
+      - RUNNER_IMAGE=${RUNNER_IMAGE:-letta-opencode-runner:latest}
+      - RUNNER_CPU_LIMIT=${RUNNER_CPU_LIMIT:-2.0}
+      - RUNNER_MEMORY_LIMIT=${RUNNER_MEMORY_LIMIT:-2g}
+      - RUNNER_TIMEOUT_MS=${RUNNER_TIMEOUT_MS:-300000}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-3}
+      - MCP_PORT=${MCP_PORT:-3500}
+      - MCP_HOST=0.0.0.0
+      - DEBUG=${DEBUG:-false}
+      - ENABLE_ASYNC_EXECUTE=${ENABLE_ASYNC_EXECUTE:-true}
+      - ENFORCE_IDEMPOTENCY=${ENFORCE_IDEMPOTENCY:-true}
+      - NODE_ENV=${NODE_ENV:-production}
+      - OPENCODE_SERVER_ENABLED=${OPENCODE_SERVER_ENABLED:-false}
+      - OPENCODE_SERVER_URL=${OPENCODE_SERVER_URL:-http://opencode-server:3100}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/stacks:/opt/stacks
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3500/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - letta-network
+      - matrix
+
+  opencode-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.opencode
+    container_name: opencode-server
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+    environment:
+      - MATRIX_API_URL=http://letta-opencode-plugin:3500/matrix
+    volumes:
+      - opencode-workspaces:/workspace
+      - /root/.config/opencode:/root/.config/opencode:ro
+      - /root/.local/share/opencode:/root/.local/share/opencode
+      - /root/.cache/opencode:/root/.cache/opencode:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/config"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - letta-network
+
+volumes:
+  opencode-workspaces:
+
+networks:
+  letta-network:
+    external: true
+  matrix:
+    name: matrix-synapse-deployment_matrix-internal
+    external: true

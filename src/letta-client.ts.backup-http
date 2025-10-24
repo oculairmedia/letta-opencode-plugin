@@ -1,0 +1,181 @@
+import type {
+  LettaConfig,
+  LettaAgent,
+  LettaMessage,
+  LettaMemoryBlock,
+  CreateMemoryBlockRequest,
+  UpdateMemoryBlockRequest,
+  AttachMemoryBlockRequest,
+  SendMessageRequest,
+  LettaError,
+} from "./types/letta.js";
+
+export class LettaClient {
+  private baseUrl: string;
+  private token: string;
+  private timeout: number;
+  private maxRetries: number;
+
+  constructor(config: LettaConfig) {
+    this.baseUrl = config.baseUrl.replace(/\/$/, "");
+    this.token = config.token;
+    this.timeout = config.timeout || 30000;
+    this.maxRetries = config.maxRetries || 3;
+  }
+
+  private async fetchWithRetry<T>(
+    path: string,
+    options: RequestInit = {},
+    retryCount = 0
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const headers = {
+      Authorization: `Bearer ${this.token}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 409) {
+        if (retryCount < this.maxRetries) {
+          const backoff = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          await new Promise((resolve) => setTimeout(resolve, backoff));
+          return this.fetchWithRetry<T>(path, options, retryCount + 1);
+        }
+        const error: LettaError = new Error(
+          "Optimistic concurrency conflict after retries"
+        );
+        error.status = 409;
+        error.retryable = false;
+        throw error;
+      }
+
+      if (response.status >= 500) {
+        if (retryCount < this.maxRetries) {
+          const backoff = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          await new Promise((resolve) => setTimeout(resolve, backoff));
+          return this.fetchWithRetry<T>(path, options, retryCount + 1);
+        }
+        const error: LettaError = new Error(
+          `Server error after ${this.maxRetries} retries`
+        );
+        error.status = response.status;
+        error.retryable = false;
+        throw error;
+      }
+
+      if (!response.ok) {
+        const error: LettaError = new Error(
+          `HTTP ${response.status}: ${response.statusText}`
+        );
+        error.status = response.status;
+        error.retryable = false;
+        throw error;
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === "AbortError") {
+        const timeoutError: LettaError = new Error("Request timeout");
+        timeoutError.retryable = retryCount < this.maxRetries;
+        throw timeoutError;
+      }
+
+      throw error;
+    }
+  }
+
+  async getAgent(agentId: string): Promise<LettaAgent> {
+    return this.fetchWithRetry<LettaAgent>(`/v1/agents/${agentId}`);
+  }
+
+  async listMessages(agentId: string, limit = 50): Promise<LettaMessage[]> {
+    return this.fetchWithRetry<LettaMessage[]>(
+      `/v1/agents/${agentId}/messages?limit=${limit}`
+    );
+  }
+
+  async sendMessage(
+    agentId: string,
+    request: SendMessageRequest
+  ): Promise<LettaMessage> {
+    return this.fetchWithRetry<LettaMessage>(
+      `/v1/agents/${agentId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async createMemoryBlock(
+    agentId: string,
+    request: CreateMemoryBlockRequest
+  ): Promise<LettaMemoryBlock> {
+    return this.fetchWithRetry<LettaMemoryBlock>(
+      `/v1/agents/${agentId}/memory/blocks`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async updateMemoryBlock(
+    agentId: string,
+    blockId: string,
+    request: UpdateMemoryBlockRequest
+  ): Promise<LettaMemoryBlock> {
+    return this.fetchWithRetry<LettaMemoryBlock>(
+      `/v1/agents/${agentId}/memory/blocks/${blockId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async attachMemoryBlock(
+    agentId: string,
+    request: AttachMemoryBlockRequest
+  ): Promise<void> {
+    await this.fetchWithRetry<void>(
+      `/v1/agents/${agentId}/memory/blocks/attach`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async detachMemoryBlock(
+    agentId: string,
+    blockId: string
+  ): Promise<void> {
+    await this.fetchWithRetry<void>(
+      `/v1/agents/${agentId}/memory/blocks/${blockId}/detach`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async listMemoryBlocks(agentId: string): Promise<LettaMemoryBlock[]> {
+    return this.fetchWithRetry<LettaMemoryBlock[]>(
+      `/v1/agents/${agentId}/memory/blocks`
+    );
+  }
+}

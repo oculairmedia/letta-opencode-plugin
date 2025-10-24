@@ -1,0 +1,54 @@
+{
+  "name": "letta-opencode-plugin",
+  "version": "0.2.0",
+  "description": "MCP server enabling Letta agents to delegate tasks to OpenCode",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "letta-opencode-plugin": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "lint": "eslint src/",
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration --runInBand",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "mcp",
+    "letta",
+    "opencode",
+    "ai",
+    "agents"
+  ],
+  "author": "Oculair Media",
+  "license": "MIT",
+  "dependencies": {
+    "@letta-ai/letta-client": "^0.0.68665",
+    "@modelcontextprotocol/sdk": "^1.16.0",
+    "@opencode-ai/sdk": "^0.15.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.1.0",
+    "eventsource": "^4.0.0",
+    "express": "^4.18.2",
+    "matrix-bot-sdk": "^0.7.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
