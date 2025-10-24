@@ -14,9 +14,16 @@ export class OpenCodeClientManager {
 
   constructor(config: OpenCodeServerConfig) {
     this.config = config;
-    this.client = createOpencodeClient({
-      baseUrl: config.serverUrl,
-    });
+    try {
+      console.log(`[OpenCodeClient] Initializing client with URL: ${config.serverUrl}`);
+      this.client = createOpencodeClient({
+        baseUrl: config.serverUrl,
+      });
+      console.log(`[OpenCodeClient] Client initialized:`, typeof this.client, !!this.client);
+    } catch (error) {
+      console.error(`[OpenCodeClient] Failed to initialize client:`, error);
+      throw error;
+    }
   }
 
   async healthCheck(): Promise<boolean> {
@@ -39,6 +46,10 @@ export class OpenCodeClientManager {
     workingDir?: string
   ): Promise<OpenCodeSession> {
     try {
+      if (!this.client) {
+        throw new Error("OpenCode client not initialized");
+      }
+      console.log(`[OpenCodeClient] Creating session for task ${taskId}`);
       const sessionResponse = await this.client.session.create({
         body: {
           title: `Task: ${taskId}`,

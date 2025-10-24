@@ -19,8 +19,10 @@ export class ExecutionManager {
 
   constructor(config: ExecutionConfig) {
     this.config = config;
+    console.log(`[ExecutionManager] Initializing with openCodeServerEnabled=${config.openCodeServerEnabled}, url=${config.openCodeServerUrl}`);
 
     if (config.openCodeServerEnabled && config.openCodeServerUrl) {
+      console.log(`[ExecutionManager] Creating OpenCodeClientManager`);
       this.openCodeClient = new OpenCodeClientManager({
         enabled: true,
         serverUrl: config.openCodeServerUrl,
@@ -28,6 +30,9 @@ export class ExecutionManager {
         maxRetries: 3,
         retryDelayMs: 1000,
       });
+      console.log(`[ExecutionManager] OpenCodeClientManager created`);
+    } else {
+      console.log(`[ExecutionManager] OpenCode server disabled, using Docker mode`);
     }
   }
 
