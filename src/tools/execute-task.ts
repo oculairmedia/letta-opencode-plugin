@@ -98,6 +98,7 @@ export async function executeTask(
   deps.registry.updateStatus(taskId, "queued", { workspaceBlockId: blockId });
 
   if (!params.sync) {
+    console.error(`[execute-task] Calling executeTaskAsync for task ${taskId}`);
     executeTaskAsync(
       taskId,
       params,
