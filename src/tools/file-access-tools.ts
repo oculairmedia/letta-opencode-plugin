@@ -76,14 +76,25 @@ export async function readTaskFile(
     );
   }
 
+  const MAX_FILE_SIZE = parseInt(process.env.MAX_TASK_FILE_SIZE || "1000000", 10); // 1MB default
+
   try {
     const content = await execution.readTaskFile(task_id, file_path);
+    const size = content.length;
+
+    // Check size after reading (since we don't have a separate stat method)
+    if (size > MAX_FILE_SIZE) {
+      throw new Error(
+        `File too large: ${file_path} (${size} bytes exceeds limit of ${MAX_FILE_SIZE} bytes). ` +
+        `Configure MAX_TASK_FILE_SIZE environment variable to increase limit.`
+      );
+    }
 
     return {
       task_id,
       file_path,
       content,
-      size: content.length,
+      size,
     };
   } catch (error) {
     if (error instanceof Error) {

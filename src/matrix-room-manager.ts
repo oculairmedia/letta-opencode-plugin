@@ -22,6 +22,7 @@ export class MatrixRoomManager {
 
   async createTaskRoom(request: CreateRoomRequest): Promise<RoomInfo> {
     log(`Creating task room for task ${request.taskId}`);
+    console.log(`[matrix-room-manager] humanObservers:`, request.humanObservers);
 
     const roomName = `Task: ${request.taskId}`;
     const topic = `OpenCode Task: ${request.taskDescription}`;
@@ -62,6 +63,8 @@ export class MatrixRoomManager {
         inviteList.push(participant.id);
       }
     }
+    
+    console.log(`[matrix-room-manager] inviteList:`, inviteList);
 
     const powerLevelContentOverride = {
       users: {
@@ -131,11 +134,13 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
   async closeTaskRoom(roomId: string, taskId: string, summary: string): Promise<void> {
     log(`Closing task room ${roomId} for task ${taskId}`);
 
+    const summaryHtml = summary.replace(/\n/g, '<br>');
+    
     await this.matrixClient.sendHtmlMessage(
       roomId,
-      `✅ Task Completed\n\n${summary}`,
-      `<h3>✅ Task Completed</h3>
-<p>${summary}</p>
+      summary,
+      `<h3>${summaryHtml.split('\n\n')[0]}</h3>
+<p>${summaryHtml.split('\n\n').slice(1).join('<br><br>')}</p>
 <p><em>This room will remain available for review.</em></p>`,
       {
         "io.letta.task": {

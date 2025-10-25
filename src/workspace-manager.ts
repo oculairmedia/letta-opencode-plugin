@@ -9,9 +9,35 @@ import type {
 
 const WORKSPACE_VERSION = "1.0.0";
 const WORKSPACE_LABEL = "opencode_workspace";
+const DEFAULT_MAX_EVENTS = 50;
 
 export class WorkspaceManager {
-  constructor(private letta: LettaClient) {}
+  private maxEvents: number;
+
+  constructor(private letta: LettaClient) {
+    this.maxEvents = parseInt(process.env.WORKSPACE_MAX_EVENTS || String(DEFAULT_MAX_EVENTS), 10);
+  }
+
+  private pruneEvents(workspace: WorkspaceBlock): WorkspaceBlock {
+    if (workspace.events.length <= this.maxEvents) {
+      return workspace;
+    }
+
+    const pruned = workspace.events.length - this.maxEvents;
+    const recentEvents = workspace.events.slice(-this.maxEvents);
+
+    return {
+      ...workspace,
+      events: [
+        {
+          timestamp: Date.now(),
+          type: "task_progress",
+          message: `[System: Pruned ${pruned} older events to stay within ${this.maxEvents} event limit]`,
+        },
+        ...recentEvents,
+      ],
+    };
+  }
 
   async createWorkspaceBlock(
     request: CreateWorkspaceRequest
@@ -32,7 +58,9 @@ export class WorkspaceManager {
 
     const block = await this.letta.createMemoryBlock(request.agent_id, {
       label: blockLabel,
+      description: "OpenCode task execution workspace. Monitor 'status' field for current state (pending/running/completed/failed/timeout). The 'events' array contains chronological task progress (most recent last). The 'artifacts' array contains task outputs. Check 'updated_at' to see when last modified.",
       value: JSON.stringify(workspace),
+      limit: parseInt(process.env.WORKSPACE_BLOCK_LIMIT || "50000", 10),
     });
 
     try {
@@ -85,11 +113,24 @@ export class WorkspaceManager {
 
     workspace.updated_at = Date.now();
 
+    // Prune events if exceeding limit
+    const prunedWorkspace = this.pruneEvents(workspace);
+
+    // Validate size before updating
+    const serialized = JSON.stringify(prunedWorkspace);
+    const blockLimit = parseInt(process.env.WORKSPACE_BLOCK_LIMIT || "50000", 10);
+    
+    if (serialized.length > blockLimit) {
+      console.warn(
+        `[workspace-manager] Workspace block ${blockId} exceeds limit: ${serialized.length} > ${blockLimit} chars`
+      );
+    }
+
     await this.letta.updateMemoryBlock(agentId, blockId, {
-      value: JSON.stringify(workspace),
+      value: serialized,
     });
 
-    return workspace;
+    return prunedWorkspace;
   }
 
   async appendEvent(

@@ -70,10 +70,13 @@ export class LettaClient {
     agentId: string,
     request: CreateMemoryBlockRequest
   ): Promise<LettaMemoryBlock> {
+    console.log(`[letta-client] Creating memory block for agent ${agentId}: ${request.label}`);
     const block = await this.client.blocks.create(
       {
         label: request.label,
+        description: request.description,
         value: request.value,
+        limit: request.limit,
       },
       {
         timeoutInSeconds: this.timeout / 1000,
@@ -88,6 +91,7 @@ export class LettaClient {
     blockId: string,
     request: UpdateMemoryBlockRequest
   ): Promise<LettaMemoryBlock> {
+    console.log(`[letta-client] Updating memory block ${blockId} for agent ${agentId}`);
     const block = await this.client.blocks.modify(
       blockId,
       {

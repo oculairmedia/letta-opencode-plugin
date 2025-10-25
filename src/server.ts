@@ -75,7 +75,7 @@ const execution = new ExecutionManager({
 });
 
 const registry = new TaskRegistry({
-  maxConcurrentTasks: parseInt(process.env.MAX_CONCURRENT_TASKS || "3", 10),
+  maxConcurrentTasks: parseInt(process.env.MAX_CONCURRENT_TASKS || "10", 10),
   idempotencyWindowMs: 24 * 60 * 60 * 1000,
 });
 
@@ -278,7 +278,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "get_task_history",
       description:
-        "Retrieve the complete history of events and optionally artifacts for a completed task.",
+        "Retrieve the complete history of events and optionally artifacts for a completed task. " +
+        "Supports pagination for large event histories.",
       inputSchema: {
         type: "object",
         properties: {
@@ -290,6 +291,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             type: "boolean",
             description: "Whether to include artifacts (files, outputs) in the response",
             default: false,
+          },
+          events_limit: {
+            type: "number",
+            description: "Maximum number of events to return (default: 100, use -1 for all)",
+            default: 100,
+          },
+          events_offset: {
+            type: "number",
+            description: "Number of events to skip for pagination (default: 0)",
+            default: 0,
           },
         },
         required: ["task_id"],

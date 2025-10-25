@@ -1,8 +1,10 @@
 services:
   letta-opencode-plugin:
-    image: ghcr.io/oculairmedia/letta-opencode-plugin:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: letta-opencode-plugin:local
     container_name: letta-opencode-plugin
-    pull_policy: always
     ports:
       - "${MCP_PORT:-3500}:3500"
     restart: unless-stopped
@@ -24,6 +26,15 @@ services:
       - NODE_ENV=${NODE_ENV:-production}
       - OPENCODE_SERVER_ENABLED=${OPENCODE_SERVER_ENABLED:-false}
       - OPENCODE_SERVER_URL=${OPENCODE_SERVER_URL:-http://opencode-server:3100}
+      - MATRIX_ENABLED=${MATRIX_ENABLED:-false}
+      - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
+      - MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}
+      - MATRIX_USER_ID=${MATRIX_USER_ID}
+      - MATRIX_STORAGE_PATH=${MATRIX_STORAGE_PATH:-./.matrix-storage.json}
+      - MATRIX_DEFAULT_HUMAN_OBSERVERS=${MATRIX_DEFAULT_HUMAN_OBSERVERS}
+      - WORKSPACE_BLOCK_LIMIT=${WORKSPACE_BLOCK_LIMIT:-50000}
+      - WORKSPACE_MAX_EVENTS=${WORKSPACE_MAX_EVENTS:-50}
+      - MAX_TASK_FILE_SIZE=${MAX_TASK_FILE_SIZE:-1000000}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/stacks:/opt/stacks

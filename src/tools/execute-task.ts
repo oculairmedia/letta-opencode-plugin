@@ -46,6 +46,7 @@ export async function executeTask(
   deps: ExecuteTaskDependencies
 ): Promise<Record<string, unknown>> {
   const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  console.log(`[execute-task] Starting task ${taskId} for agent ${params.agent_id}`);
 
   if (!deps.registry.canAcceptTask()) {
     return {
@@ -149,8 +150,10 @@ async function executeTaskAsync(
   workspaceBlockId: string,
   deps: ExecuteTaskDependencies
 ): Promise<Record<string, unknown>> {
+  console.log(`[execute-task] executeTaskAsync started for task ${taskId}`);
   try {
     deps.registry.updateStatus(taskId, "running");
+    console.log(`[execute-task] Task ${taskId} status updated to running`);
 
     // Create Matrix room if Matrix is enabled
     let roomInfo: any = null;
@@ -248,13 +251,29 @@ async function executeTaskAsync(
 
     deps.registry.updateStatus(taskId, finalStatus);
 
-    // Close Matrix room if Matrix is enabled and room was created
+    // Send completion message to Matrix room if Matrix is enabled and room was created
     if (deps.matrix && roomInfo) {
       try {
+        const emoji = finalStatus === "completed" ? "✅" : finalStatus === "timeout" ? "⏱️" : "❌";
+        const statusText = finalStatus === "completed" ? "Completed Successfully" : 
+                          finalStatus === "timeout" ? "Timed Out" : "Failed";
+        
+        let summary = `${emoji} Task ${statusText}\n\n`;
+        summary += `Duration: ${result.durationMs}ms\n`;
+        
+        if (result.exitCode !== undefined) {
+          summary += `Exit Code: ${result.exitCode}\n`;
+        }
+        
+        if (result.output) {
+          const outputPreview = result.output.slice(0, 500);
+          summary += `\nOutput Preview:\n${outputPreview}${result.output.length > 500 ? '...' : ''}`;
+        }
+        
         await deps.matrix.closeTaskRoom(
           roomInfo.roomId,
           taskId,
-          `Task ${finalStatus} after ${result.durationMs}ms`
+          summary
         );
         deps.registry.clearMatrixRoom(taskId);
       } catch (matrixError) {
@@ -301,7 +320,7 @@ async function executeTaskAsync(
       );
       
       await deps.letta.sendMessage(params.agent_id, {
-        role: "user",
+        role: "system",
         content: notificationMessage,
       });
       console.log(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
@@ -351,7 +370,7 @@ Error: ${errorMessage}
 The task execution encountered an error and could not be completed.`;
       
       await deps.letta.sendMessage(params.agent_id, {
-        role: "user",
+        role: "system",
         content: notificationMessage,
       });
       console.log(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);

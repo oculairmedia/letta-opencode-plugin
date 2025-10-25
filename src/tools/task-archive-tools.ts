@@ -6,6 +6,8 @@ import type { MatrixRoomManager } from "../matrix-room-manager.js";
 export const GetTaskHistorySchema = z.object({
   task_id: z.string(),
   include_artifacts: z.boolean().default(false),
+  events_limit: z.number().optional().default(100).describe("Maximum number of events to return (default: 100, -1 for all)"),
+  events_offset: z.number().optional().default(0).describe("Number of events to skip (default: 0)"),
 });
 
 export type GetTaskHistoryParams = z.infer<typeof GetTaskHistorySchema>;
@@ -32,6 +34,10 @@ export async function getTaskHistory(
   created_at: number;
   completed_at?: number;
   events: Array<{ timestamp: number; type: string; message: string }>;
+  events_total: number;
+  events_returned: number;
+  events_offset: number;
+  has_more_events: boolean;
   artifacts?: Array<{ timestamp: number; type: string; name: string; content: string }>;
 }> {
   const task = deps.registry.getTask(params.task_id);
@@ -49,23 +55,38 @@ export async function getTaskHistory(
     task.workspaceBlockId
   );
 
+  const allEvents = workspaceBlock.events.map((e) => ({
+    timestamp: e.timestamp,
+    type: e.type,
+    message: e.message,
+  }));
+
+  // Apply pagination
+  const eventsLimit = params.events_limit === -1 ? allEvents.length : params.events_limit;
+  const eventsOffset = params.events_offset;
+  const paginatedEvents = allEvents.slice(eventsOffset, eventsOffset + eventsLimit);
+
   const history: {
     task_id: string;
     status: string;
     created_at: number;
     completed_at?: number;
     events: Array<{ timestamp: number; type: string; message: string }>;
+    events_total: number;
+    events_returned: number;
+    events_offset: number;
+    has_more_events: boolean;
     artifacts?: Array<{ timestamp: number; type: string; name: string; content: string }>;
   } = {
     task_id: params.task_id,
     status: task.status,
     created_at: task.createdAt,
     completed_at: task.completedAt,
-    events: workspaceBlock.events.map((e) => ({
-      timestamp: e.timestamp,
-      type: e.type,
-      message: e.message,
-    })),
+    events: paginatedEvents,
+    events_total: allEvents.length,
+    events_returned: paginatedEvents.length,
+    events_offset: eventsOffset,
+    has_more_events: eventsOffset + paginatedEvents.length < allEvents.length,
   };
 
   if (params.include_artifacts) {
@@ -113,7 +134,7 @@ export async function archiveTaskConversation(
   }
 
   const history = await getTaskHistory(
-    { task_id: params.task_id, include_artifacts: true },
+    { task_id: params.task_id, include_artifacts: true, events_limit: -1, events_offset: 0 },
     deps
   );
 

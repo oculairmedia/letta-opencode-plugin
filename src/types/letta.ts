@@ -24,6 +24,7 @@ export interface LettaMessage {
 export interface LettaMemoryBlock {
   id: string;
   label: string;
+  description?: string;
   value: string;
   limit?: number;
   created_at: string;
@@ -32,6 +33,7 @@ export interface LettaMemoryBlock {
 
 export interface CreateMemoryBlockRequest {
   label: string;
+  description?: string;
   value: string;
   limit?: number;
 }
@@ -46,7 +48,7 @@ export interface AttachMemoryBlockRequest {
 }
 
 export interface SendMessageRequest {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
 }
 

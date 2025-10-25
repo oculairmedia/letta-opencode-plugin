@@ -113,28 +113,36 @@ export class ExecutionManager {
         }
       );
 
+      let timeoutHandle: NodeJS.Timeout | null = null;
+      
       const timeoutPromise = new Promise<void>((resolve) => {
-        setTimeout(() => {
+        timeoutHandle = setTimeout(() => {
           if (!completed) {
             timedOut = true;
             this.openCodeClient
               ?.abortSession(session.sessionId)
               .catch(console.error);
+            resolve();
           }
-          resolve();
         }, timeout);
       });
 
       const completionPromise = new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
-          if (completed || timedOut) {
+          if (completed) {
+            clearInterval(checkInterval);
+            if (timeoutHandle) {
+              clearTimeout(timeoutHandle);
+            }
+            resolve();
+          } else if (timedOut) {
             clearInterval(checkInterval);
             resolve();
           }
         }, 100);
       });
 
-      await Promise.race([completionPromise, timeoutPromise]);
+      await completionPromise;
 
       const result: ExecutionResult = {
         taskId: request.taskId,
