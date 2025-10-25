@@ -291,6 +291,24 @@ async function executeTaskAsync(
       ],
     });
 
+    // Send completion notification to the calling agent
+    try {
+      const notificationMessage = formatCompletionNotification(
+        taskId,
+        finalStatus,
+        result,
+        params.task_description
+      );
+      
+      await deps.letta.sendMessage(params.agent_id, {
+        role: "user",
+        content: notificationMessage,
+      });
+      console.log(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
+    } catch (notificationError) {
+      console.error(`[execute-task] Failed to send completion notification for task ${taskId}:`, notificationError);
+    }
+
     await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
 
     return {
@@ -321,6 +339,26 @@ async function executeTaskAsync(
 
     await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
 
+    // Send failure notification to the calling agent
+    try {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const notificationMessage = `🚨 OpenCode Task Failed
+
+Task ID: ${taskId}
+Description: ${params.task_description}
+Error: ${errorMessage}
+
+The task execution encountered an error and could not be completed.`;
+      
+      await deps.letta.sendMessage(params.agent_id, {
+        role: "user",
+        content: notificationMessage,
+      });
+      console.log(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);
+    } catch (notificationError) {
+      console.error(`[execute-task] Failed to send failure notification for task ${taskId}:`, notificationError);
+    }
+
     return {
       task_id: taskId,
       status: "failed",
@@ -328,4 +366,40 @@ async function executeTaskAsync(
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+function formatCompletionNotification(
+  taskId: string,
+  status: string,
+  result: any,
+  taskDescription: string
+): string {
+  const emoji = status === "completed" ? "✅" : status === "timeout" ? "⏱️" : "❌";
+  const statusText = status === "completed" ? "Completed Successfully" : 
+                     status === "timeout" ? "Timed Out" : "Failed";
+  
+  let message = `${emoji} OpenCode Task ${statusText}
+
+Task ID: ${taskId}
+Description: ${taskDescription}
+Duration: ${result.durationMs}ms
+Status: ${status}`;
+
+  if (result.exitCode !== undefined) {
+    message += `\nExit Code: ${result.exitCode}`;
+  }
+
+  if (result.output) {
+    const outputPreview = result.output.slice(0, 1000);
+    message += `\n\nOutput:\n${outputPreview}`;
+    if (result.output.length > 1000) {
+      message += `\n\n... (truncated, use get_task_history for full output)`;
+    }
+  }
+
+  if (result.error) {
+    message += `\n\nError: ${result.error}`;
+  }
+
+  return message;
 }
