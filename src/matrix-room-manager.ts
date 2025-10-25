@@ -37,22 +37,103 @@ function log(...args: unknown[]): void {
 
 export class MatrixRoomManager {
   private matrixClient: MatrixClientWrapper;
+  private matrixApiUrl: string;
 
   constructor(matrixClient: MatrixClientWrapper) {
     this.matrixClient = matrixClient;
+    this.matrixApiUrl = process.env.MATRIX_API_URL || "http://192.168.50.90:8004";
   }
 
   getMatrixClient(): MatrixClientWrapper {
     return this.matrixClient;
   }
 
+  /**
+   * Fetch the existing agent room from the matrix-api service.
+   * This leverages the infrastructure maintained by the matrix-client container.
+   */
+  private async getAgentRoom(agentId: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.matrixApiUrl}/agents/${agentId}/room`);
+      if (!response.ok) {
+        log(`Failed to fetch agent room for ${agentId}: ${response.status}`);
+        return null;
+      }
+      const data = await response.json();
+      if (data.success && data.room_id) {
+        log(`Found existing room ${data.room_id} for agent ${agentId}`);
+        return data.room_id;
+      }
+      return null;
+    } catch (error) {
+      log(`Error fetching agent room for ${agentId}:`, error);
+      return null;
+    }
+  }
+
   async createTaskRoom(request: CreateRoomRequest): Promise<RoomInfo> {
     log(`Creating task room for task ${request.taskId}`);
     console.log(`[matrix-room-manager] humanObservers:`, request.humanObservers);
 
+    // Try to use the existing agent room instead of creating a new one
+    const existingRoomId = await this.getAgentRoom(request.callingAgentId);
+
+    if (existingRoomId) {
+      log(`Using existing agent room ${existingRoomId} for task ${request.taskId}`);
+
+      // Send task started message to the existing room
+      await this.matrixClient.sendHtmlMessage(
+        existingRoomId,
+        `🚀 Task Execution Started\n\nTask ID: ${request.taskId}\nDescription: ${request.taskDescription}`,
+        `<h3>🚀 Task Execution Started</h3>
+<p><strong>Task ID:</strong> <code>${request.taskId}</code></p>
+<p><strong>Description:</strong> ${request.taskDescription}</p>`,
+        {
+          "io.letta.task": {
+            task_id: request.taskId,
+            event_type: "task_created",
+          },
+        }
+      );
+
+      // Invite human observers if specified
+      if (request.humanObservers) {
+        for (const humanId of request.humanObservers) {
+          if (humanId.startsWith("@")) {
+            try {
+              await this.matrixClient.inviteUser(existingRoomId, humanId);
+              log(`Invited observer ${humanId} to existing room ${existingRoomId}`);
+            } catch (error) {
+              log(`Failed to invite ${humanId} to room ${existingRoomId}:`, error);
+            }
+          }
+        }
+      }
+
+      const roomInfo: RoomInfo = {
+        roomId: existingRoomId,
+        taskId: request.taskId,
+        participants: [
+          {
+            id: request.callingAgentId,
+            type: "agent",
+            role: "calling_agent",
+            invitedAt: Date.now(),
+          },
+        ],
+        createdAt: Date.now(),
+        metadata: request.metadata,
+      };
+
+      return roomInfo;
+    }
+
+    // Fallback: create a new room if agent room not found
+    log(`No existing agent room found for ${request.callingAgentId}, creating new task room`);
+
     const roomName = `Task: ${request.taskId}`;
     const topic = `OpenCode Task: ${request.taskDescription}`;
-    
+
     const botUserId = this.matrixClient.getUserId();
     const participants: Participant[] = [];
 
@@ -89,7 +170,7 @@ export class MatrixRoomManager {
         inviteList.push(participant.id);
       }
     }
-    
+
     console.log(`[matrix-room-manager] inviteList:`, inviteList);
 
     const powerLevelContentOverride = {
