@@ -211,14 +211,14 @@ Calling Agent ID: ${agentId}`;
   ): Promise<void> {
     try {
       console.error(`[OpenCodeClient] Subscribing to events for session ${sessionId}...`);
-      const events = await this.client.event.subscribe();
+      const stream = await this.client.event.list();
       console.error(`[OpenCodeClient] Event subscription created, starting event loop...`);
 
       // Start the event consumption loop
       (async () => {
         try {
           console.error(`[OpenCodeClient] Event loop started for session ${sessionId}`);
-          for await (const event of events.stream) {
+          for await (const event of stream) {
             // DEBUG: Log ALL events to understand structure
             console.error(`[OpenCodeClient] DEBUG: Received event:`, JSON.stringify({
               type: event.type,
