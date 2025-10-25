@@ -114,18 +114,6 @@ export class ExecutionManager {
       );
 
       let timeoutHandle: NodeJS.Timeout | null = null;
-      
-      const timeoutPromise = new Promise<void>((resolve) => {
-        timeoutHandle = setTimeout(() => {
-          if (!completed) {
-            timedOut = true;
-            this.openCodeClient
-              ?.abortSession(session.sessionId)
-              .catch(console.error);
-            resolve();
-          }
-        }, timeout);
-      });
 
       const completionPromise = new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
@@ -140,6 +128,17 @@ export class ExecutionManager {
             resolve();
           }
         }, 100);
+        
+        timeoutHandle = setTimeout(() => {
+          if (!completed) {
+            timedOut = true;
+            clearInterval(checkInterval);
+            this.openCodeClient
+              ?.abortSession(session.sessionId)
+              .catch(console.error);
+            resolve();
+          }
+        }, timeout);
       });
 
       await completionPromise;

@@ -1,10 +1,8 @@
 services:
   letta-opencode-plugin:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: letta-opencode-plugin:local
+    image: ghcr.io/oculairmedia/letta-opencode-plugin:latest
     container_name: letta-opencode-plugin
+    pull_policy: always
     ports:
       - "${MCP_PORT:-3500}:3500"
     restart: unless-stopped
