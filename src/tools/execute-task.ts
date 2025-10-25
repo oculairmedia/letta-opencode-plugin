@@ -250,6 +250,13 @@ async function executeTaskAsync(
         ? "timeout"
         : "failed";
 
+    const notificationMessage = formatCompletionNotification(
+      taskId,
+      finalStatus,
+      result,
+      params.task_description
+    );
+
     console.error(`[execute-task] Task ${taskId} completed with status: ${finalStatus}`);
     deps.registry.updateStatus(taskId, finalStatus);
 
@@ -257,27 +264,11 @@ async function executeTaskAsync(
     console.error(`[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`);
     if (deps.matrix && roomInfo) {
       try {
-        const emoji = finalStatus === "completed" ? "✅" : finalStatus === "timeout" ? "⏱️" : "❌";
-        const statusText = finalStatus === "completed" ? "Completed Successfully" : 
-                          finalStatus === "timeout" ? "Timed Out" : "Failed";
-        
-        let summary = `${emoji} Task ${statusText}\n\n`;
-        summary += `Duration: ${result.durationMs}ms\n`;
-        
-        if (result.exitCode !== undefined) {
-          summary += `Exit Code: ${result.exitCode}\n`;
-        }
-        
-        if (result.output) {
-          const outputPreview = result.output.slice(0, 500);
-          summary += `\nOutput Preview:\n${outputPreview}${result.output.length > 500 ? '...' : ''}`;
-        }
-        
         console.error(`[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`);
         await deps.matrix.closeTaskRoom(
           roomInfo.roomId,
           taskId,
-          summary
+          notificationMessage
         );
         console.error(`[execute-task] Matrix completion message sent successfully`);
         deps.registry.clearMatrixRoom(taskId);
@@ -317,13 +308,6 @@ async function executeTaskAsync(
 
     // Send completion notification to the calling agent
     try {
-      const notificationMessage = formatCompletionNotification(
-        taskId,
-        finalStatus,
-        result,
-        params.task_description
-      );
-      
       await deps.letta.sendMessage(params.agent_id, {
         role: "system",
         content: notificationMessage,

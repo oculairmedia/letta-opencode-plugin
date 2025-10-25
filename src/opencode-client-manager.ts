@@ -76,6 +76,27 @@ export class OpenCodeClientManager {
 
       this.activeSessions.set(taskId, session);
 
+      console.log(`[OpenCodeClient] Session ${sessionId} created and ready. IMPORTANT: Subscribe to events BEFORE calling sendPrompt()`);
+
+      return session;
+    } catch (error) {
+      throw new Error(
+        `Failed to create session: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  async sendPrompt(
+    sessionId: string,
+    taskId: string,
+    agentId: string,
+    prompt: string
+  ): Promise<void> {
+    try {
+      if (!this.client) {
+        throw new Error("OpenCode client not initialized");
+      }
+
       // Build enhanced prompt with instructions to communicate back to Letta
       const enhancedPrompt = `${prompt}
 
@@ -88,8 +109,7 @@ IMPORTANT: When you complete this task, you MUST send a message back to the call
 Task ID: ${taskId}
 Calling Agent ID: ${agentId}`;
 
-      // Send initial prompt
-      console.log(`[opencode-client] Sending prompt to session ${sessionId}`);
+      console.log(`[OpenCodeClient] Sending prompt to session ${sessionId}`);
       await this.client.session.prompt({
         path: { id: sessionId },
         body: {
@@ -100,11 +120,10 @@ Calling Agent ID: ${agentId}`;
           parts: [{ type: "text", text: enhancedPrompt }],
         },
       });
-
-      return session;
+      console.log(`[OpenCodeClient] Prompt sent successfully to session ${sessionId}`);
     } catch (error) {
       throw new Error(
-        `Failed to create session: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to send prompt: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -115,25 +134,32 @@ Calling Agent ID: ${agentId}`;
     onError?: (error: Error) => void
   ): Promise<void> {
     try {
+      console.error(`[OpenCodeClient] Subscribing to events for session ${sessionId}...`);
       const events = await this.client.event.subscribe();
-      
+      console.error(`[OpenCodeClient] Event subscription created, starting event loop...`);
+
+      // Start the event consumption loop
       (async () => {
         try {
+          console.error(`[OpenCodeClient] Event loop started for session ${sessionId}`);
           for await (const event of events.stream) {
             // Filter events for this session
             if (event.properties?.sessionId === sessionId) {
               // Map server event types to our internal event types
               let eventType = event.type;
+              console.error(`[OpenCodeClient] Raw event received: type=${event.type}, sessionId=${sessionId}`);
               if (eventType === 'finish' || eventType === 'finish-step') {
+                console.error(`[OpenCodeClient] Mapping ${eventType} -> complete for sessionId=${sessionId}`);
                 eventType = 'complete';
               }
-              
+
               const openCodeEvent: OpenCodeEvent = {
                 type: eventType as any,
                 timestamp: Date.now(),
                 sessionId,
                 data: event.properties,
               };
+              console.error(`[OpenCodeClient] Calling onEvent with type=${openCodeEvent.type}`);
               onEvent(openCodeEvent);
             }
           }
@@ -144,6 +170,11 @@ Calling Agent ID: ${agentId}`;
           }
         }
       })();
+
+      // Give the async event loop a moment to start before returning
+      // This ensures the loop is active before the prompt is sent
+      await new Promise(resolve => setTimeout(resolve, 100));
+      console.error(`[OpenCodeClient] Event subscription ready for session ${sessionId}`);
     } catch (error) {
       console.error("[OpenCodeClient] Failed to subscribe to events:", error);
       if (onError) {

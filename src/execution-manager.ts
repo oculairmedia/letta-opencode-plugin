@@ -59,10 +59,12 @@ export class ExecutionManager {
     const timeout = request.timeout || this.config.timeoutMs;
 
     try {
+      // Step 1: Create session WITHOUT sending prompt yet
+      console.error(`[execution-manager] Creating session for task ${request.taskId}`);
       const session = await this.openCodeClient.createSession(
         request.taskId,
         request.agentId,
-        request.prompt
+        request.prompt  // This is now ignored, but kept for backward compatibility
       );
 
       const containerInfo: ContainerInfo = {
@@ -81,6 +83,8 @@ export class ExecutionManager {
       let timedOut = false;
 
       const eventHandler = (event: OpenCodeEvent) => {
+        console.error(`[execution-manager] Event received for task ${request.taskId}: type=${event.type}`);
+
         if (onEvent) {
           onEvent(event);
         }
@@ -93,44 +97,64 @@ export class ExecutionManager {
             error = String(event.data);
             break;
           case "complete":
+            console.error(`[execution-manager] COMPLETE event received for task ${request.taskId}, setting completed=true`);
             completed = true;
             break;
           case "abort":
             error = error || "Task aborted";
             completed = true;
             break;
+          default:
+            console.error(`[execution-manager] Unhandled event type for task ${request.taskId}: ${event.type}`);
         }
       };
 
       this.eventHandlers.set(request.taskId, eventHandler);
 
+      // Step 2: Subscribe to events BEFORE sending prompt
+      console.error(`[execution-manager] Subscribing to events for session ${session.sessionId}`);
       this.openCodeClient.subscribeToEvents(
         session.sessionId,
         eventHandler,
         (err) => {
+          console.error(`[execution-manager] Event subscription error for task ${request.taskId}:`, err.message);
           error = err.message;
           completed = true;
         }
       );
 
+      // Step 3: NOW send the prompt (events are already being listened to)
+      console.error(`[execution-manager] Sending prompt to session ${session.sessionId}`);
+      await this.openCodeClient.sendPrompt(
+        session.sessionId,
+        request.taskId,
+        request.agentId,
+        request.prompt
+      );
+      console.error(`[execution-manager] Prompt sent, waiting for events...`);
+
       let timeoutHandle: NodeJS.Timeout | null = null;
 
       const completionPromise = new Promise<void>((resolve) => {
+        console.error(`[execution-manager] Starting completion wait for task ${request.taskId}, timeout=${timeout}ms`);
         const checkInterval = setInterval(() => {
           if (completed) {
+            console.error(`[execution-manager] Task ${request.taskId} completed, resolving promise`);
             clearInterval(checkInterval);
             if (timeoutHandle) {
               clearTimeout(timeoutHandle);
             }
             resolve();
           } else if (timedOut) {
+            console.error(`[execution-manager] Task ${request.taskId} timed out, resolving promise`);
             clearInterval(checkInterval);
             resolve();
           }
         }, 100);
-        
+
         timeoutHandle = setTimeout(() => {
           if (!completed) {
+            console.error(`[execution-manager] Task ${request.taskId} timeout reached after ${timeout}ms`);
             timedOut = true;
             clearInterval(checkInterval);
             this.openCodeClient
@@ -141,7 +165,9 @@ export class ExecutionManager {
         }, timeout);
       });
 
+      console.error(`[execution-manager] Awaiting completion for task ${request.taskId}`);
       await completionPromise;
+      console.error(`[execution-manager] Completion promise resolved for task ${request.taskId}, completed=${completed}, timedOut=${timedOut}`);
 
       const result: ExecutionResult = {
         taskId: request.taskId,
