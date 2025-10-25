@@ -122,8 +122,14 @@ Calling Agent ID: ${agentId}`;
           for await (const event of events.stream) {
             // Filter events for this session
             if (event.properties?.sessionId === sessionId) {
+              // Map server event types to our internal event types
+              let eventType = event.type;
+              if (eventType === 'finish' || eventType === 'finish-step') {
+                eventType = 'complete';
+              }
+              
               const openCodeEvent: OpenCodeEvent = {
-                type: event.type as any,
+                type: eventType as any,
                 timestamp: Date.now(),
                 sessionId,
                 data: event.properties,
