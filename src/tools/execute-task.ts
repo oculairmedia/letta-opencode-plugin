@@ -249,9 +249,11 @@ async function executeTaskAsync(
         ? "timeout"
         : "failed";
 
+    console.log(`[execute-task] Task ${taskId} completed with status: ${finalStatus}`);
     deps.registry.updateStatus(taskId, finalStatus);
 
     // Send completion message to Matrix room if Matrix is enabled and room was created
+    console.log(`[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`);
     if (deps.matrix && roomInfo) {
       try {
         const emoji = finalStatus === "completed" ? "✅" : finalStatus === "timeout" ? "⏱️" : "❌";
@@ -270,11 +272,13 @@ async function executeTaskAsync(
           summary += `\nOutput Preview:\n${outputPreview}${result.output.length > 500 ? '...' : ''}`;
         }
         
+        console.log(`[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`);
         await deps.matrix.closeTaskRoom(
           roomInfo.roomId,
           taskId,
           summary
         );
+        console.log(`[execute-task] Matrix completion message sent successfully`);
         deps.registry.clearMatrixRoom(taskId);
       } catch (matrixError) {
         console.error(`Failed to close Matrix room for task ${taskId}:`, matrixError);
