@@ -85,7 +85,7 @@ export async function executeTask(
     });
     blockId = result.blockId;
     workspace = result.workspace;
-    console.log(`[execute-task] Created workspace block ${blockId} for task ${taskId}`);
+    console.error(`[execute-task] Created workspace block ${blockId} for task ${taskId}`);
   } catch (error) {
     console.error(`[execute-task] Failed to create workspace block for task ${taskId}:`, error);
     return {
@@ -151,10 +151,10 @@ async function executeTaskAsync(
   workspaceBlockId: string,
   deps: ExecuteTaskDependencies
 ): Promise<Record<string, unknown>> {
-  console.log(`[execute-task] executeTaskAsync started for task ${taskId}`);
+  console.error(`[execute-task] executeTaskAsync started for task ${taskId}`);
   try {
     deps.registry.updateStatus(taskId, "running");
-    console.log(`[execute-task] Task ${taskId} status updated to running`);
+    console.error(`[execute-task] Task ${taskId} status updated to running`);
 
     // Create Matrix room if Matrix is enabled
     let roomInfo: any = null;
@@ -250,11 +250,11 @@ async function executeTaskAsync(
         ? "timeout"
         : "failed";
 
-    console.log(`[execute-task] Task ${taskId} completed with status: ${finalStatus}`);
+    console.error(`[execute-task] Task ${taskId} completed with status: ${finalStatus}`);
     deps.registry.updateStatus(taskId, finalStatus);
 
     // Send completion message to Matrix room if Matrix is enabled and room was created
-    console.log(`[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`);
+    console.error(`[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`);
     if (deps.matrix && roomInfo) {
       try {
         const emoji = finalStatus === "completed" ? "✅" : finalStatus === "timeout" ? "⏱️" : "❌";
@@ -273,13 +273,13 @@ async function executeTaskAsync(
           summary += `\nOutput Preview:\n${outputPreview}${result.output.length > 500 ? '...' : ''}`;
         }
         
-        console.log(`[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`);
+        console.error(`[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`);
         await deps.matrix.closeTaskRoom(
           roomInfo.roomId,
           taskId,
           summary
         );
-        console.log(`[execute-task] Matrix completion message sent successfully`);
+        console.error(`[execute-task] Matrix completion message sent successfully`);
         deps.registry.clearMatrixRoom(taskId);
       } catch (matrixError) {
         console.error(`Failed to close Matrix room for task ${taskId}:`, matrixError);
@@ -328,7 +328,7 @@ async function executeTaskAsync(
         role: "system",
         content: notificationMessage,
       });
-      console.log(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
+      console.error(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
     } catch (notificationError) {
       console.error(`[execute-task] Failed to send completion notification for task ${taskId}:`, notificationError);
     }
@@ -378,7 +378,7 @@ The task execution encountered an error and could not be completed.`;
         role: "system",
         content: notificationMessage,
       });
-      console.log(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);
+      console.error(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);
     } catch (notificationError) {
       console.error(`[execute-task] Failed to send failure notification for task ${taskId}:`, notificationError);
     }
