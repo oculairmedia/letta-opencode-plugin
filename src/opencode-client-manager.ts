@@ -7,6 +7,82 @@ import type {
   SessionInfo,
 } from "./types/opencode.js";
 
+function normalizeCompletionStatus(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim().toLowerCase();
+  }
+  return undefined;
+}
+
+function mapEventType(
+  rawType: unknown,
+  properties?: Record<string, unknown>
+): { type: string; mappedFrom?: string } {
+  if (typeof rawType !== "string") {
+    return { type: "unknown" };
+  }
+
+  const originalLower = rawType.toLowerCase();
+
+  const isCompletionKeyword = (lower: string): boolean => {
+    if (lower === "finish" || lower === "finish-step" || lower === "done" || lower === "complete") {
+      return true;
+    }
+    if (lower.startsWith("finish:") || lower.startsWith("finish_")) {
+      return true;
+    }
+    if (lower.endsWith(":finish") || lower.endsWith(".finish") || lower.endsWith("_finish")) {
+      return true;
+    }
+    if (lower.endsWith(":complete") || lower.endsWith(".complete") || lower.endsWith("_complete")) {
+      return true;
+    }
+    if (lower.includes("session.complete") || lower.includes("session.finished")) {
+      return true;
+    }
+    if (lower.includes("complete") && !lower.includes("incomplete")) {
+      return true;
+    }
+    if (lower.includes("finished") && !lower.includes("unfinished")) {
+      return true;
+    }
+    if (lower.includes("success") && !lower.includes("unsuccess")) {
+      return true;
+    }
+    return false;
+  };
+
+  if (isCompletionKeyword(originalLower)) {
+    return { type: "complete", mappedFrom: rawType };
+  }
+
+  if (properties) {
+    const statusKeys = ["status", "state", "phase", "result"];
+    for (const key of statusKeys) {
+      const value = normalizeCompletionStatus(properties[key]);
+      if (!value) {
+        continue;
+      }
+      if (
+        value === "complete" ||
+        value === "completed" ||
+        value === "finished" ||
+        value === "success" ||
+        value === "succeeded" ||
+        value === "done"
+      ) {
+        return { type: "complete", mappedFrom: `${rawType}:${key}=${value}` };
+      }
+      if (value === "timeout" || value === "cancelled" || value === "failed") {
+        // propagate original type for failure states
+        return { type: rawType };
+      }
+    }
+  }
+
+  return { type: rawType };
+}
+
 export class OpenCodeClientManager {
   private config: OpenCodeServerConfig;
   private activeSessions: Map<string, OpenCodeSession> = new Map();
@@ -146,11 +222,15 @@ Calling Agent ID: ${agentId}`;
             // Filter events for this session
             if (event.properties?.sessionId === sessionId) {
               // Map server event types to our internal event types
-              let eventType = event.type;
               console.error(`[OpenCodeClient] Raw event received: type=${event.type}, sessionId=${sessionId}`);
-              if (eventType === 'finish' || eventType === 'finish-step') {
-                console.error(`[OpenCodeClient] Mapping ${eventType} -> complete for sessionId=${sessionId}`);
-                eventType = 'complete';
+              const { type: eventType, mappedFrom } = mapEventType(
+                event.type,
+                event.properties as Record<string, unknown> | undefined
+              );
+              if (mappedFrom) {
+                console.error(
+                  `[OpenCodeClient] Mapping ${mappedFrom} -> ${eventType} for sessionId=${sessionId}`
+                );
               }
 
               const openCodeEvent: OpenCodeEvent = {

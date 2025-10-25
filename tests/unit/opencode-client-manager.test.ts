@@ -209,24 +209,6 @@ describe("OpenCodeClientManager", () => {
       });
     });
 
-    it("should send initial prompt after session creation", async () => {
-      mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
-      });
-
-      mockClient.session.prompt.mockResolvedValue({});
-
-      await manager.createSession("task-123", "agent-456", "Test prompt");
-
-      expect(mockClient.session.prompt).toHaveBeenCalledWith({
-        path: { id: "session-123" },
-        body: {
-          parts: [{ type: "text", text: "Test prompt" }],
-        },
-      });
-    });
-
     it("should use custom working directory when provided", async () => {
       mockClient.session.create.mockResolvedValue({
         id: "session-123",
@@ -282,6 +264,45 @@ describe("OpenCodeClientManager", () => {
       await expect(
         manager.createSession("task-123", "agent-456", "Test prompt")
       ).rejects.toThrow("Failed to create session: String error");
+    });
+  });
+
+  describe("sendPrompt", () => {
+    it("should send enhanced prompt to session", async () => {
+      mockClient.session.prompt.mockResolvedValue({});
+
+      await manager.sendPrompt("session-123", "task-123", "agent-456", "Test prompt");
+
+      expect(mockClient.session.prompt).toHaveBeenCalledWith({
+        path: { id: "session-123" },
+        body: {
+          model: {
+            providerID: expect.any(String),
+            modelID: expect.any(String),
+          },
+          parts: [
+            {
+              type: "text",
+              text: expect.stringContaining("Test prompt"),
+            },
+          ],
+        },
+      });
+
+      const callArgs = mockClient.session.prompt.mock.calls[0][0] as {
+        body: { parts: Array<{ text: string }> };
+      };
+      expect(callArgs.body.parts[0].text).toContain("IMPORTANT: When you complete this task");
+      expect(callArgs.body.parts[0].text).toContain("Task ID: task-123");
+      expect(callArgs.body.parts[0].text).toContain("Calling Agent ID: agent-456");
+    });
+
+    it("should throw error when prompt fails", async () => {
+      mockClient.session.prompt.mockRejectedValue(new Error("Prompt failed"));
+
+      await expect(
+        manager.sendPrompt("session-123", "task-123", "agent-456", "Test prompt")
+      ).rejects.toThrow("Failed to send prompt: Prompt failed");
     });
   });
 
@@ -350,6 +371,64 @@ describe("OpenCodeClientManager", () => {
       expect(onEvent).toHaveBeenCalledTimes(1);
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
+          sessionId: "session-123",
+        })
+      );
+    });
+
+    it("should normalize finish variants to complete events", async () => {
+      const mockStream = {
+        stream: (async function* () {
+          yield {
+            type: "finish:part",
+            properties: {
+              sessionId: "session-123",
+              part: "final",
+            },
+          };
+        })(),
+      };
+
+      mockClient.event.subscribe.mockResolvedValue(mockStream);
+
+      const onEvent = jest.fn();
+
+      await manager.subscribeToEvents("session-123", onEvent);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(onEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "complete",
+          sessionId: "session-123",
+        })
+      );
+    });
+
+    it("should convert status events with completed state to complete", async () => {
+      const mockStream = {
+        stream: (async function* () {
+          yield {
+            type: "status",
+            properties: {
+              sessionId: "session-123",
+              status: "Completed",
+            },
+          };
+        })(),
+      };
+
+      mockClient.event.subscribe.mockResolvedValue(mockStream);
+
+      const onEvent = jest.fn();
+
+      await manager.subscribeToEvents("session-123", onEvent);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(onEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "complete",
           sessionId: "session-123",
         })
       );
@@ -513,38 +592,39 @@ describe("OpenCodeClientManager", () => {
 
   describe("sendMessage", () => {
     it("should send message to session", async () => {
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
-        ok: true,
-      } as Response);
+      mockClient.session.prompt.mockResolvedValue({});
 
       await manager.sendMessage("session-123", "Test message");
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:3100/session/session-123/message",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "Test message" }),
-        }
-      );
+      expect(mockClient.session.prompt).toHaveBeenCalledWith({
+        path: { id: "session-123" },
+        body: {
+          model: {
+            providerID: expect.any(String),
+            modelID: expect.any(String),
+          },
+          parts: [
+            {
+              type: "text",
+              text: "Test message",
+            },
+          ],
+        },
+      });
     });
 
     it("should throw error on failure", async () => {
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-      } as Response);
+      mockClient.session.prompt.mockRejectedValue(
+        new Error("Internal Server Error")
+      );
 
       await expect(
         manager.sendMessage("session-123", "Test message")
-      ).rejects.toThrow("Failed to send message: 500 Internal Server Error");
+      ).rejects.toThrow("Failed to send message: Internal Server Error");
     });
 
     it("should handle network errors", async () => {
-      (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
-        new Error("Network error")
-      );
+      mockClient.session.prompt.mockRejectedValue(new Error("Network error"));
 
       await expect(
         manager.sendMessage("session-123", "Test message")

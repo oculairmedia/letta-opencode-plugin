@@ -3,6 +3,32 @@ import type { RoomInfo, Participant, CreateRoomRequest, ArchiveInfo } from "./ty
 
 const DEBUG = process.env.DEBUG === "true";
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildSummaryHtml(summary: string): string {
+  const normalized = summary.trimEnd();
+  if (!normalized) {
+    return `<h3>Task Completed</h3><p><em>This room will remain available for review.</em></p>`;
+  }
+
+  const blocks = normalized.split(/\n{2,}/);
+  const [headline, ...rest] = blocks;
+
+  const headlineHtml = escapeHtml(headline).replace(/\n/g, "<br>");
+  const bodyHtml = rest
+    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+  return `<h3>${headlineHtml}</h3>${bodyHtml}<p><em>This room will remain available for review.</em></p>`;
+}
+
 function log(...args: unknown[]): void {
   if (DEBUG) {
     console.error("[matrix-room-manager]", ...args);
@@ -134,21 +160,29 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
   async closeTaskRoom(roomId: string, taskId: string, summary: string): Promise<void> {
     log(`Closing task room ${roomId} for task ${taskId}`);
 
-    const summaryHtml = summary.replace(/\n/g, '<br>');
-    
-    await this.matrixClient.sendHtmlMessage(
-      roomId,
-      summary,
-      `<h3>${summaryHtml.split('\n\n')[0]}</h3>
-<p>${summaryHtml.split('\n\n').slice(1).join('<br><br>')}</p>
-<p><em>This room will remain available for review.</em></p>`,
-      {
-        "io.letta.task": {
-          task_id: taskId,
-          event_type: "task_completed",
-        },
-      }
-    );
+    const trimmedSummary = summary.trim();
+    const plainText = trimmedSummary || "Task completed.";
+    const metadata: Record<string, unknown> = {
+      "io.letta.task": {
+        task_id: taskId,
+        event_type: "task_completed",
+      },
+    };
+
+    try {
+      await this.matrixClient.sendHtmlMessage(
+        roomId,
+        plainText,
+        buildSummaryHtml(summary),
+        metadata
+      );
+    } catch (error) {
+      console.error(
+        `[matrix-room-manager] Failed to send HTML completion summary for task ${taskId} in room ${roomId}, falling back to plain text:`,
+        error
+      );
+      await this.matrixClient.sendMessage(roomId, plainText, metadata);
+    }
 
     log(`Task room ${roomId} closed`);
   }
