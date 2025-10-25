@@ -211,14 +211,22 @@ Calling Agent ID: ${agentId}`;
   ): Promise<void> {
     try {
       console.error(`[OpenCodeClient] Subscribing to events for session ${sessionId}...`);
-      const stream = await this.client.event.list();
+      const events = await this.client.event.subscribe();
+      const eventIterable =
+        events && typeof events === "object" && "stream" in events && events.stream
+          ? events.stream
+          : events;
+
+      if (!eventIterable || typeof (eventIterable as any)[Symbol.asyncIterator] !== "function") {
+        throw new Error("Event subscription did not return an async iterable");
+      }
       console.error(`[OpenCodeClient] Event subscription created, starting event loop...`);
 
       // Start the event consumption loop
       (async () => {
         try {
           console.error(`[OpenCodeClient] Event loop started for session ${sessionId}`);
-          for await (const event of stream) {
+          for await (const event of eventIterable) {
             // DEBUG: Log ALL events to understand structure
             console.error(`[OpenCodeClient] DEBUG: Received event:`, JSON.stringify({
               type: event.type,
