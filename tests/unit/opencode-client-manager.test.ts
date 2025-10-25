@@ -376,6 +376,35 @@ describe("OpenCodeClientManager", () => {
       );
     });
 
+    it("should support subscribe() returning stream() function", async () => {
+      const mockStreamFn = () =>
+        (async function* () {
+          yield {
+            type: "finish",
+            properties: {
+              sessionId: "session-abc",
+            },
+          };
+        })();
+
+      mockClient.event.subscribe.mockResolvedValue({
+        stream: mockStreamFn,
+      });
+
+      const onEvent = jest.fn();
+
+      await manager.subscribeToEvents("session-abc", onEvent);
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(onEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "complete",
+          sessionId: "session-abc",
+        })
+      );
+    });
+
     it("should normalize finish variants to complete events", async () => {
       const mockStream = {
         stream: (async function* () {

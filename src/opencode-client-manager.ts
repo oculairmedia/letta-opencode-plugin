@@ -7,6 +7,12 @@ import type {
   SessionInfo,
 } from "./types/opencode.js";
 
+type RawEvent = {
+  type?: string;
+  properties?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 function normalizeCompletionStatus(value: unknown): string | undefined {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim().toLowerCase();
@@ -211,14 +217,35 @@ Calling Agent ID: ${agentId}`;
   ): Promise<void> {
     try {
       console.error(`[OpenCodeClient] Subscribing to events for session ${sessionId}...`);
-      const events = await this.client.event.subscribe();
-      const eventIterable =
-        events && typeof events === "object" && "stream" in events && events.stream
-          ? events.stream
-          : events;
+      const subscription = await this.client.event.subscribe();
+      let eventIterable: AsyncIterable<RawEvent> | undefined;
 
-      if (!eventIterable || typeof (eventIterable as any)[Symbol.asyncIterator] !== "function") {
-        throw new Error("Event subscription did not return an async iterable");
+      if (subscription && typeof subscription[Symbol.asyncIterator] === "function") {
+        eventIterable = subscription as AsyncIterable<RawEvent>;
+      } else if (
+        subscription &&
+        typeof (subscription as Record<string, unknown>).stream === "object" &&
+        (subscription as Record<string, unknown>).stream !== null &&
+        typeof ((subscription as Record<string, unknown>).stream as any)[Symbol.asyncIterator] === "function"
+      ) {
+        eventIterable = (subscription as Record<string, unknown>).stream as AsyncIterable<RawEvent>;
+      } else if (
+        subscription &&
+        typeof (subscription as Record<string, unknown>).stream === "function"
+      ) {
+        const streamResult = (subscription as { stream: () => AsyncIterable<RawEvent> }).stream();
+        if (
+          streamResult &&
+          typeof (streamResult as any)[Symbol.asyncIterator] === "function"
+        ) {
+          eventIterable = streamResult;
+        }
+      }
+
+      if (!eventIterable) {
+        throw new Error(
+          "Event subscription did not return an async iterable (expected async iterator or .stream accessor)"
+        );
       }
       console.error(`[OpenCodeClient] Event subscription created, starting event loop...`);
 
