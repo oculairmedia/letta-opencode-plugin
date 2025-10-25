@@ -46,7 +46,7 @@ export async function executeTask(
   deps: ExecuteTaskDependencies
 ): Promise<Record<string, unknown>> {
   const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  console.log(`[execute-task] Starting task ${taskId} for agent ${params.agent_id}`);
+  console.error(`[execute-task] Starting task ${taskId} for agent ${params.agent_id}`);
 
   if (!deps.registry.canAcceptTask()) {
     return {
