@@ -306,11 +306,17 @@ async function executeTaskAsync(
       ],
     });
 
-    // Send completion notification to the calling agent
+    // Send completion notification to the calling agent as a system_alert
     try {
+      const systemAlert = JSON.stringify({
+        type: "system_alert",
+        message: notificationMessage,
+        time: new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }),
+      });
+
       await deps.letta.sendMessage(params.agent_id, {
-        role: "system",
-        content: notificationMessage,
+        role: "user",
+        content: systemAlert,
       });
       console.error(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
     } catch (notificationError) {
@@ -347,7 +353,7 @@ async function executeTaskAsync(
 
     await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
 
-    // Send failure notification to the calling agent
+    // Send failure notification to the calling agent as a system_alert
     try {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const notificationMessage = `🚨 OpenCode Task Failed
@@ -357,10 +363,16 @@ Description: ${params.task_description}
 Error: ${errorMessage}
 
 The task execution encountered an error and could not be completed.`;
-      
+
+      const systemAlert = JSON.stringify({
+        type: "system_alert",
+        message: notificationMessage,
+        time: new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }),
+      });
+
       await deps.letta.sendMessage(params.agent_id, {
-        role: "system",
-        content: notificationMessage,
+        role: "user",
+        content: systemAlert,
       });
       console.error(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);
     } catch (notificationError) {
