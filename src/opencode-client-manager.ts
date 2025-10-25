@@ -219,6 +219,13 @@ Calling Agent ID: ${agentId}`;
         try {
           console.error(`[OpenCodeClient] Event loop started for session ${sessionId}`);
           for await (const event of events.stream) {
+            // DEBUG: Log ALL events to understand structure
+            console.error(`[OpenCodeClient] DEBUG: Received event:`, JSON.stringify({
+              type: event.type,
+              properties: event.properties,
+              targetSession: sessionId
+            }, null, 2));
+
             // Filter events for this session
             if (event.properties?.sessionId === sessionId) {
               // Map server event types to our internal event types
