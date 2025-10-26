@@ -76,7 +76,9 @@ export class MatrixRoomManager {
     console.log(`[matrix-room-manager] humanObservers:`, request.humanObservers);
 
     // Try to use the existing agent room instead of creating a new one
+    console.error(`[matrix-room-manager] Attempting to fetch existing room for agent ${request.callingAgentId}`);
     const existingRoomId = await this.getAgentRoom(request.callingAgentId);
+    console.error(`[matrix-room-manager] getAgentRoom returned:`, existingRoomId);
 
     if (existingRoomId) {
       log(`Using existing agent room ${existingRoomId} for task ${request.taskId}`);
