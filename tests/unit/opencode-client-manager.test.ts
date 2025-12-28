@@ -137,22 +137,18 @@ describe("OpenCodeClientManager", () => {
       expect(session.status).toBe("active");
     });
 
-    it("should handle legacy format with direct id property", async () => {
-      // Fallback for if SDK changes to return id directly
+    it("should handle SDK error response", async () => {
+      // OpenCode 1.0 SDK returns { error: {...} } on failure
       mockClient.session.create.mockResolvedValue({
-        id: "session-legacy",
-        status: "active",
+        error: {
+          message: "Invalid request",
+          code: 400,
+        },
       });
 
-      mockClient.session.prompt.mockResolvedValue({});
-
-      const session = await manager.createSession(
-        "task-legacy",
-        "agent-456",
-        "Test prompt"
-      );
-
-      expect(session.sessionId).toBe("session-legacy");
+      await expect(
+        manager.createSession("task-error", "agent-456", "Test prompt")
+      ).rejects.toThrow("Session creation failed:");
     });
 
     it("should throw error when no session ID is returned", async () => {
@@ -173,10 +169,10 @@ describe("OpenCodeClientManager", () => {
       mockClient.session.create.mockResolvedValue({
         data: {
           id: "session-123",
-          version: "0.15.0",
+          version: "1.0.0",
           projectID: "global",
           directory: "/workspace",
-          title: "Task: task-123",
+          title: "Task: task-123 (agent: agent-456)",
           time: { created: Date.now(), updated: Date.now() },
         },
       });
@@ -197,22 +193,21 @@ describe("OpenCodeClientManager", () => {
         status: "active",
       });
 
+      // OpenCode 1.0 SDK removed metadata from session.create
       expect(mockClient.session.create).toHaveBeenCalledWith({
         body: {
-          title: "Task: task-123",
-          metadata: {
-            taskId: "task-123",
-            agentId: "agent-456",
-            workingDir: "/workspace",
-          },
+          title: "Task: task-123 (agent: agent-456)",
         },
       });
     });
 
-    it("should use custom working directory when provided", async () => {
+    it("should use custom working directory when provided (no longer in API)", async () => {
+      // OpenCode 1.0 SDK removed metadata from session.create
+      // Working directory is now handled via prompt context
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
@@ -224,19 +219,19 @@ describe("OpenCodeClientManager", () => {
         "/custom/path"
       );
 
+      // Custom working dir is no longer passed in metadata
       expect(mockClient.session.create).toHaveBeenCalledWith({
-        body: expect.objectContaining({
-          metadata: expect.objectContaining({
-            workingDir: "/custom/path",
-          }),
-        }),
+        body: {
+          title: "Task: task-123 (agent: agent-456)",
+        },
       });
     });
 
     it("should store session in active sessions", async () => {
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
@@ -376,20 +371,20 @@ describe("OpenCodeClientManager", () => {
       );
     });
 
-    it("should support subscribe() returning stream() function", async () => {
-      const mockStreamFn = () =>
-        (async function* () {
+    it("should handle AsyncGenerator stream directly (OpenCode 1.0 format)", async () => {
+      // OpenCode 1.0 SDK returns { stream: AsyncGenerator } directly
+      const mockStream = {
+        stream: (async function* () {
           yield {
             type: "finish",
             properties: {
               sessionId: "session-abc",
             },
           };
-        })();
+        })(),
+      };
 
-      mockClient.event.subscribe.mockResolvedValue({
-        stream: mockStreamFn,
-      });
+      mockClient.event.subscribe.mockResolvedValue(mockStream);
 
       const onEvent = jest.fn();
 
@@ -552,21 +547,22 @@ describe("OpenCodeClientManager", () => {
       });
     });
 
-    it("should include error when session has error", async () => {
+    it("should throw on SDK error response", async () => {
+      // OpenCode 1.0 SDK returns { error: {...} } on failure
       mockClient.session.get.mockResolvedValue({
-        id: "session-123",
-        status: "error",
-        error: "Task failed",
+        error: { message: "Task failed" },
       });
 
-      const info = await manager.getSessionInfo("session-123");
-
-      expect(info.error).toBe("Task failed");
+      await expect(manager.getSessionInfo("session-123")).rejects.toThrow(
+        "Failed to get session info:"
+      );
     });
 
-    it("should default to active status when not provided", async () => {
+    it("should default to active status", async () => {
       mockClient.session.get.mockResolvedValue({
-        id: "session-123",
+        data: {
+          id: "session-123",
+        },
       });
 
       const info = await manager.getSessionInfo("session-123");
@@ -663,62 +659,70 @@ describe("OpenCodeClientManager", () => {
 
   describe("listFiles", () => {
     it("should list files in root directory", async () => {
-      mockClient.file.status.mockResolvedValue([
-        { path: "/file1.txt" },
-        { path: "/file2.txt" },
-      ]);
+      // OpenCode 1.0 SDK returns { data, error } format
+      mockClient.file.status.mockResolvedValue({
+        data: [
+          { path: "/file1.txt" },
+          { path: "/file2.txt" },
+        ],
+      });
 
       const files = await manager.listFiles("session-123");
 
       expect(files).toEqual(["/file1.txt", "/file2.txt"]);
-      expect(mockClient.file.status).toHaveBeenCalledWith({
-        query: undefined,
-      });
+      expect(mockClient.file.status).toHaveBeenCalled();
     });
 
-    it("should list files in specific path", async () => {
-      mockClient.file.status.mockResolvedValue([
-        { path: "/src/file1.ts" },
-        { path: "/src/file2.ts" },
-      ]);
+    it("should list files (path filter no longer supported in API)", async () => {
+      // OpenCode 1.0 SDK file.status() no longer takes path query
+      mockClient.file.status.mockResolvedValue({
+        data: [
+          { path: "/src/file1.ts" },
+          { path: "/src/file2.ts" },
+        ],
+      });
 
       const files = await manager.listFiles("session-123", "/src");
 
       expect(files).toEqual(["/src/file1.ts", "/src/file2.ts"]);
-      expect(mockClient.file.status).toHaveBeenCalledWith({
-        query: { path: "/src" },
-      });
     });
 
     it("should return empty array when no files", async () => {
-      mockClient.file.status.mockResolvedValue([]);
+      mockClient.file.status.mockResolvedValue({
+        data: [],
+      });
 
       const files = await manager.listFiles("session-123");
 
       expect(files).toEqual([]);
     });
 
-    it("should throw error on failure", async () => {
-      mockClient.file.status.mockRejectedValue(new Error("List failed"));
+    it("should throw error on SDK error response", async () => {
+      mockClient.file.status.mockResolvedValue({
+        error: { message: "List failed" },
+      });
 
       await expect(manager.listFiles("session-123")).rejects.toThrow(
-        "Failed to list files: List failed"
+        "Failed to list files:"
       );
     });
 
-    it("should handle non-Error exceptions", async () => {
-      mockClient.file.status.mockRejectedValue("String error");
+    it("should handle rejected promise", async () => {
+      mockClient.file.status.mockRejectedValue(new Error("Network error"));
 
       await expect(manager.listFiles("session-123")).rejects.toThrow(
-        "Failed to list files: String error"
+        "Failed to list files: Network error"
       );
     });
   });
 
   describe("readFile", () => {
     it("should read file content", async () => {
+      // OpenCode 1.0 SDK returns { data, error } format
       mockClient.file.read.mockResolvedValue({
-        content: "File content here",
+        data: {
+          content: "File content here",
+        },
       });
 
       const content = await manager.readFile("session-123", "/test.txt");
@@ -731,7 +735,9 @@ describe("OpenCodeClientManager", () => {
 
     it("should handle empty files", async () => {
       mockClient.file.read.mockResolvedValue({
-        content: "",
+        data: {
+          content: "",
+        },
       });
 
       const content = await manager.readFile("session-123", "/empty.txt");
@@ -739,28 +745,32 @@ describe("OpenCodeClientManager", () => {
       expect(content).toBe("");
     });
 
-    it("should throw error on failure", async () => {
-      mockClient.file.read.mockRejectedValue(new Error("Read failed"));
+    it("should throw error on SDK error response", async () => {
+      mockClient.file.read.mockResolvedValue({
+        error: { message: "Read failed" },
+      });
 
       await expect(
         manager.readFile("session-123", "/test.txt")
-      ).rejects.toThrow("Failed to read file: Read failed");
+      ).rejects.toThrow("Failed to read file:");
     });
 
-    it("should handle non-Error exceptions", async () => {
-      mockClient.file.read.mockRejectedValue("String error");
+    it("should handle rejected promise", async () => {
+      mockClient.file.read.mockRejectedValue(new Error("Network error"));
 
       await expect(
         manager.readFile("session-123", "/test.txt")
-      ).rejects.toThrow("Failed to read file: String error");
+      ).rejects.toThrow("Failed to read file: Network error");
     });
   });
 
   describe("getActiveSession", () => {
     it("should return active session", async () => {
+      // OpenCode 1.0 SDK returns { data, error } format
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
@@ -784,8 +794,9 @@ describe("OpenCodeClientManager", () => {
   describe("removeSession", () => {
     it("should remove session from active sessions", async () => {
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
@@ -807,8 +818,9 @@ describe("OpenCodeClientManager", () => {
   describe("cleanup", () => {
     it("should clear all active sessions", async () => {
       mockClient.session.create.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        data: {
+          id: "session-123",
+        },
       });
 
       mockClient.session.prompt.mockResolvedValue({});

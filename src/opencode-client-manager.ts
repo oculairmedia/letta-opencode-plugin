@@ -1,5 +1,4 @@
-// @ts-ignore - SDK has no TypeScript definitions
-import { createOpencodeClient } from "@opencode-ai/sdk";
+import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
 import type {
   OpenCodeServerConfig,
   OpenCodeSession,
@@ -92,7 +91,7 @@ function mapEventType(
 export class OpenCodeClientManager {
   private config: OpenCodeServerConfig;
   private activeSessions: Map<string, OpenCodeSession> = new Map();
-  private client: any;
+  private client: OpencodeClient;
 
   constructor(config: OpenCodeServerConfig) {
     this.config = config;
@@ -132,18 +131,19 @@ export class OpenCodeClientManager {
         throw new Error("OpenCode client not initialized");
       }
       console.log(`[OpenCodeClient] Creating session for task ${taskId}`);
+      // Note: OpenCode 1.0 SDK removed metadata from session.create
+      // Task metadata is now passed via the prompt instead
       const sessionResponse = await this.client.session.create({
         body: {
-          title: `Task: ${taskId}`,
-          metadata: {
-            taskId,
-            agentId,
-            workingDir: workingDir || "/workspace",
-          },
+          title: `Task: ${taskId} (agent: ${agentId})`,
         },
       });
 
-      const sessionId = sessionResponse.data?.id || sessionResponse.id;
+      if (sessionResponse.error) {
+        throw new Error(`Session creation failed: ${JSON.stringify(sessionResponse.error)}`);
+      }
+      
+      const sessionId = sessionResponse.data?.id;
       if (!sessionId) {
         throw new Error(`Session creation failed: no ID returned`);
       }
@@ -218,33 +218,13 @@ Calling Agent ID: ${agentId}`;
     try {
       console.error(`[OpenCodeClient] Subscribing to events for session ${sessionId}...`);
       const subscription = await this.client.event.subscribe();
-      let eventIterable: AsyncIterable<RawEvent> | undefined;
-
-      if (subscription && typeof subscription[Symbol.asyncIterator] === "function") {
-        eventIterable = subscription as AsyncIterable<RawEvent>;
-      } else if (
-        subscription &&
-        typeof (subscription as Record<string, unknown>).stream === "object" &&
-        (subscription as Record<string, unknown>).stream !== null &&
-        typeof ((subscription as Record<string, unknown>).stream as any)[Symbol.asyncIterator] === "function"
-      ) {
-        eventIterable = (subscription as Record<string, unknown>).stream as AsyncIterable<RawEvent>;
-      } else if (
-        subscription &&
-        typeof (subscription as Record<string, unknown>).stream === "function"
-      ) {
-        const streamResult = (subscription as { stream: () => AsyncIterable<RawEvent> }).stream();
-        if (
-          streamResult &&
-          typeof (streamResult as any)[Symbol.asyncIterator] === "function"
-        ) {
-          eventIterable = streamResult;
-        }
-      }
-
-      if (!eventIterable) {
+      
+      // OpenCode 1.0 SDK returns { stream: AsyncGenerator }
+      const eventIterable = subscription.stream as AsyncIterable<RawEvent>;
+      
+      if (!eventIterable || typeof (eventIterable as any)[Symbol.asyncIterator] !== "function") {
         throw new Error(
-          "Event subscription did not return an async iterable (expected async iterator or .stream accessor)"
+          "Event subscription did not return an async iterable (expected .stream to be AsyncGenerator)"
         );
       }
       console.error(`[OpenCodeClient] Event subscription created, starting event loop...`);
@@ -307,16 +287,21 @@ Calling Agent ID: ${agentId}`;
 
   async getSessionInfo(sessionId: string): Promise<SessionInfo> {
     try {
-      const session = await this.client.session.get({
+      const response = await this.client.session.get({
         path: { id: sessionId },
       });
 
+      if (response.error) {
+        throw new Error(`Failed to get session: ${JSON.stringify(response.error)}`);
+      }
+
+      const session = response.data;
       return {
-        sessionId: session.id,
-        status: session.status || "active",
+        sessionId: session?.id || sessionId,
+        status: "active", // Session object doesn't have status field
         files: [], // Would need to query file.status() separately
         output: "", // Would need to get from messages
-        error: session.error,
+        error: undefined,
       };
     } catch (error) {
       throw new Error(
@@ -358,11 +343,15 @@ Calling Agent ID: ${agentId}`;
 
   async listFiles(sessionId: string, path: string = "/"): Promise<string[]> {
     try {
-      const files = await this.client.file.status({
-        query: path !== "/" ? { path } : undefined,
-      });
+      // OpenCode 1.0 SDK: file.status() returns { data, error }
+      const response = await this.client.file.status();
 
-      return files.map((f: any) => f.path);
+      if (response.error) {
+        throw new Error(`Failed to list files: ${JSON.stringify(response.error)}`);
+      }
+
+      const files = response.data || [];
+      return files.map((f) => f.path);
     } catch (error) {
       throw new Error(
         `Failed to list files: ${error instanceof Error ? error.message : String(error)}`
@@ -372,11 +361,16 @@ Calling Agent ID: ${agentId}`;
 
   async readFile(sessionId: string, filePath: string): Promise<string> {
     try {
-      const fileData = await this.client.file.read({
+      // OpenCode 1.0 SDK: file.read() uses 'path' query param and returns { data, error }
+      const response = await this.client.file.read({
         query: { path: filePath },
       });
 
-      return fileData.content;
+      if (response.error) {
+        throw new Error(`Failed to read file: ${JSON.stringify(response.error)}`);
+      }
+
+      return response.data?.content || "";
     } catch (error) {
       throw new Error(
         `Failed to read file: ${error instanceof Error ? error.message : String(error)}`
