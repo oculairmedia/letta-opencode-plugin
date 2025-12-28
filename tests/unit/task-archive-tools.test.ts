@@ -45,6 +45,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "nonexistent-task",
           include_artifacts: false,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         await expect(getTaskHistory(params, mockDeps)).rejects.toThrow(
@@ -66,6 +68,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "task-123",
           include_artifacts: false,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         await expect(getTaskHistory(params, mockDeps)).rejects.toThrow(
@@ -118,6 +122,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "task-123",
           include_artifacts: false,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         const result = await getTaskHistory(params, mockDeps);
@@ -144,6 +150,10 @@ describe("task-archive-tools", () => {
               message: "Task completed",
             },
           ],
+          events_total: 3,
+          events_returned: 3,
+          events_offset: 0,
+          has_more_events: false,
         });
         expect(result.artifacts).toBeUndefined();
       });
@@ -188,6 +198,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "task-123",
           include_artifacts: true,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         const result = await getTaskHistory(params, mockDeps);
@@ -241,6 +253,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "task-123",
           include_artifacts: false,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         const result = await getTaskHistory(params, mockDeps);
@@ -282,6 +296,8 @@ describe("task-archive-tools", () => {
         const params: GetTaskHistoryParams = {
           task_id: "task-123",
           include_artifacts: false,
+          events_limit: 100,
+          events_offset: 0,
         };
 
         const result = await getTaskHistory(params, mockDeps);

@@ -65,7 +65,7 @@ describe("WorkspaceManager", () => {
       expect(mockLettaClient.createMemoryBlock).toHaveBeenCalledWith(
         "agent-456",
         expect.objectContaining({
-          label: "opencode_workspace",
+          label: "opencode_workspace_task-123",
           value: expect.any(String),
         })
       );
@@ -89,7 +89,7 @@ describe("WorkspaceManager", () => {
       );
     });
 
-    it("should handle attachment failure gracefully", async () => {
+    it("should throw error when attachment fails", async () => {
       const request: CreateWorkspaceRequest = {
         task_id: "task-123",
         agent_id: "agent-456",
@@ -105,9 +105,10 @@ describe("WorkspaceManager", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      const result = await workspaceManager.createWorkspaceBlock(request);
+      await expect(
+        workspaceManager.createWorkspaceBlock(request)
+      ).rejects.toThrow("Attachment failed");
 
-      expect(result.blockId).toBe("block-789");
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining("Failed to attach memory block"),
         expect.any(Error)
