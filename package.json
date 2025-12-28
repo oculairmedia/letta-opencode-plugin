@@ -32,7 +32,7 @@
   "author": "Oculair Media",
   "license": "MIT",
   "dependencies": {
-    "@letta-ai/letta-client": "^0.0.68665",
+    "@letta-ai/letta-client": "^1.6.2",
     "@modelcontextprotocol/sdk": "^1.16.0",
     "@opencode-ai/sdk": "^1.0.204",
     "cors": "^2.8.5",
