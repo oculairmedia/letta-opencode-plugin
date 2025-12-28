@@ -1,16 +1,16 @@
-import type { MatrixClientWrapper } from "./matrix-client.js";
-import type { MatrixRoomManager } from "./matrix-room-manager.js";
-import type { TaskRegistry } from "./task-registry.js";
-import type { WorkspaceManager } from "./workspace-manager.js";
-import type { WorkspaceEvent } from "./types/workspace.js";
-import type { RoomInfo } from "./types/matrix.js";
-import type { ControlSignalHandler } from "./control-signal-handler.js";
+import type { MatrixClientWrapper } from './matrix-client.js';
+import type { MatrixRoomManager } from './matrix-room-manager.js';
+import type { TaskRegistry } from './task-registry.js';
+import type { WorkspaceManager } from './workspace-manager.js';
+import type { WorkspaceEvent } from './types/workspace.js';
+import type { RoomInfo } from './types/matrix.js';
+import type { ControlSignalHandler } from './control-signal-handler.js';
 
-const DEBUG = process.env.DEBUG === "true";
+const DEBUG = process.env.DEBUG === 'true';
 
 function log(...args: unknown[]): void {
   if (DEBUG) {
-    console.error("[matrix-message-router]", ...args);
+    console.error('[matrix-message-router]', ...args);
   }
 }
 
@@ -74,8 +74,8 @@ export class MatrixMessageRouter {
       void this.handleEvent({ ...event, room_id: roomId });
     };
 
-    this.matrix.getClient().on("room.message", this.listener);
-    log("Matrix message router started");
+    this.matrix.getClient().on('room.message', this.listener);
+    log('Matrix message router started');
   }
 
   stop(): void {
@@ -84,12 +84,12 @@ export class MatrixMessageRouter {
     }
 
     if (this.listener) {
-      this.matrix.getClient().removeListener("room.message", this.listener);
+      this.matrix.getClient().removeListener('room.message', this.listener);
       this.listener = undefined;
     }
 
     this.running = false;
-    log("Matrix message router stopped");
+    log('Matrix message router stopped');
   }
 
   private async handleEvent(event: MatrixRoomEvent): Promise<void> {
@@ -107,7 +107,7 @@ export class MatrixMessageRouter {
         return;
       }
 
-      if (event.content.msgtype === "io.letta.control" && this.controlHandler) {
+      if (event.content.msgtype === 'io.letta.control' && this.controlHandler) {
         await this.handleControlSignal(event, taskId);
         return;
       }
@@ -130,14 +130,11 @@ export class MatrixMessageRouter {
       await this.workspace.appendEvent(taskEntry.agentId, workspaceBlockId, workspaceEvent);
       log(`Recorded Matrix event ${event.event_id} for task ${taskId}`);
     } catch (error) {
-      console.error("Failed to process Matrix event:", error);
+      console.error('Failed to process Matrix event:', error);
     }
   }
 
-  private async handleControlSignal(
-    event: MatrixRoomEvent,
-    taskId: string
-  ): Promise<void> {
+  private async handleControlSignal(event: MatrixRoomEvent, taskId: string): Promise<void> {
     if (!this.controlHandler) {
       log(`No control handler configured, ignoring control signal for task ${taskId}`);
       return;
@@ -147,7 +144,7 @@ export class MatrixMessageRouter {
     const controlSignal = metadata.control_signal as string | undefined;
     const reason = metadata.reason as string | undefined;
 
-    if (!controlSignal || !["cancel", "pause", "resume"].includes(controlSignal)) {
+    if (!controlSignal || !['cancel', 'pause', 'resume'].includes(controlSignal)) {
       log(`Invalid control signal: ${controlSignal}`);
       return;
     }
@@ -156,7 +153,7 @@ export class MatrixMessageRouter {
 
     const result = await this.controlHandler.handleControlSignal({
       taskId,
-      signal: controlSignal as "cancel" | "pause" | "resume",
+      signal: controlSignal as 'cancel' | 'pause' | 'resume',
       reason,
       requestedBy: event.sender,
     });
@@ -172,40 +169,40 @@ export class MatrixMessageRouter {
 
   private extractMessage(event: MatrixRoomEvent): string {
     const content = event.content;
-    if (content.formatted_body && typeof content.formatted_body === "string") {
+    if (content.formatted_body && typeof content.formatted_body === 'string') {
       return content.formatted_body;
     }
-    if (content.body && typeof content.body === "string") {
+    if (content.body && typeof content.body === 'string') {
       return content.body;
     }
-    return "";
+    return '';
   }
 
   private extractTaskMetadata(event: MatrixRoomEvent): Record<string, unknown> {
-    const taskMetadata = event.content["io.letta.task"];
-    if (taskMetadata && typeof taskMetadata === "object") {
+    const taskMetadata = event.content['io.letta.task'];
+    if (taskMetadata && typeof taskMetadata === 'object') {
       return taskMetadata as Record<string, unknown>;
     }
     return {};
   }
 
-  private mapEventType(event: MatrixTimelineEvent): WorkspaceEvent["type"] {
-    if (event.content.msgtype === "io.letta.control") {
-      return "task_control";
+  private mapEventType(event: MatrixTimelineEvent): WorkspaceEvent['type'] {
+    if (event.content.msgtype === 'io.letta.control') {
+      return 'task_control';
     }
 
-    if (event.content.msgtype === "m.text") {
-      const ioLettaTask = event.content["io.letta.task"];
-      if (ioLettaTask && typeof ioLettaTask === "object") {
-        const eventType = (ioLettaTask as Record<string, unknown>)["event_type"];
-        if (typeof eventType === "string") {
-          return eventType as WorkspaceEvent["type"];
+    if (event.content.msgtype === 'm.text') {
+      const ioLettaTask = event.content['io.letta.task'];
+      if (ioLettaTask && typeof ioLettaTask === 'object') {
+        const eventType = (ioLettaTask as Record<string, unknown>)['event_type'];
+        if (typeof eventType === 'string') {
+          return eventType as WorkspaceEvent['type'];
         }
       }
-      return "task_message";
+      return 'task_message';
     }
 
-    return "task_message";
+    return 'task_message';
   }
 
   getRoomInfoForTask(taskId: string): RoomInfo | undefined {

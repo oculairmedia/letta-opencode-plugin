@@ -1,4 +1,4 @@
-import { MatrixClient, SimpleFsStorageProvider, AutojoinRoomsMixin } from "matrix-bot-sdk";
+import { MatrixClient, SimpleFsStorageProvider, AutojoinRoomsMixin } from 'matrix-bot-sdk';
 
 export interface MatrixConfig {
   homeserverUrl: string;
@@ -13,9 +13,7 @@ export class MatrixClientWrapper {
 
   constructor(config: MatrixConfig) {
     this.config = config;
-    const storage = new SimpleFsStorageProvider(
-      config.storagePath || "./.matrix-storage.json"
-    );
+    const storage = new SimpleFsStorageProvider(config.storagePath || './.matrix-storage.json');
     this.client = new MatrixClient(config.homeserverUrl, config.accessToken, storage);
     AutojoinRoomsMixin.setupOnClient(this.client);
   }
@@ -32,19 +30,19 @@ export class MatrixClientWrapper {
     name: string;
     topic?: string;
     invite?: string[];
-    visibility?: "public" | "private";
+    visibility?: 'public' | 'private';
     powerLevelContentOverride?: Record<string, unknown>;
   }): Promise<string> {
     const roomId = await this.client.createRoom({
       name: options.name,
       topic: options.topic,
       invite: options.invite,
-      visibility: options.visibility || "private",
+      visibility: options.visibility || 'private',
       initial_state: options.powerLevelContentOverride
         ? [
             {
-              type: "m.room.power_levels",
-              state_key: "",
+              type: 'm.room.power_levels',
+              state_key: '',
               content: options.powerLevelContentOverride,
             },
           ]
@@ -63,7 +61,7 @@ export class MatrixClientWrapper {
     metadata?: Record<string, unknown>
   ): Promise<string> {
     const content: Record<string, unknown> = {
-      msgtype: "m.text",
+      msgtype: 'm.text',
       body: text,
     };
 
@@ -81,9 +79,9 @@ export class MatrixClientWrapper {
     metadata?: Record<string, unknown>
   ): Promise<string> {
     const content: Record<string, unknown> = {
-      msgtype: "m.text",
+      msgtype: 'm.text',
       body: text,
-      format: "org.matrix.custom.html",
+      format: 'org.matrix.custom.html',
       formatted_body: html,
     };
 
@@ -97,12 +95,12 @@ export class MatrixClientWrapper {
   async sendControlSignal(
     roomId: string,
     taskId: string,
-    control: "cancel" | "pause" | "resume",
+    control: 'cancel' | 'pause' | 'resume',
     reason?: string
   ): Promise<string> {
     const content = {
-      msgtype: "io.letta.control",
-      "io.letta.task": {
+      msgtype: 'io.letta.control',
+      'io.letta.task': {
         task_id: taskId,
         control,
         reason,
@@ -117,7 +115,7 @@ export class MatrixClientWrapper {
   }
 
   async setRoomTopic(roomId: string, topic: string): Promise<void> {
-    await this.client.sendStateEvent(roomId, "m.room.topic", "", { topic });
+    await this.client.sendStateEvent(roomId, 'm.room.topic', '', { topic });
   }
 
   async leaveRoom(roomId: string): Promise<void> {

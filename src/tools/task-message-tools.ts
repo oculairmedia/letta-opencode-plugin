@@ -1,24 +1,24 @@
-import { z } from "zod";
-import type { TaskRegistry } from "../task-registry.js";
-import type { WorkspaceManager } from "../workspace-manager.js";
-import type { MatrixRoomManager } from "../matrix-room-manager.js";
+import { z } from 'zod';
+import type { TaskRegistry } from '../task-registry.js';
+import type { WorkspaceManager } from '../workspace-manager.js';
+import type { MatrixRoomManager } from '../matrix-room-manager.js';
 
 export const SendTaskMessageSchema = z.object({
   task_id: z.string(),
   message: z.string(),
   message_type: z
     .enum([
-      "update",
-      "feedback",
-      "context_change",
-      "requirement_change",
-      "priority_change",
-      "clarification",
-      "correction",
-      "guidance",
-      "approval",
+      'update',
+      'feedback',
+      'context_change',
+      'requirement_change',
+      'priority_change',
+      'clarification',
+      'correction',
+      'guidance',
+      'approval',
     ])
-    .default("update"),
+    .default('update'),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -31,27 +31,27 @@ export interface TaskMessageDependencies {
 }
 
 const MESSAGE_TYPE_TO_WORKSPACE_EVENT: Record<string, string> = {
-  update: "task_progress",
-  feedback: "task_feedback",
-  context_change: "task_runtime_update",
-  requirement_change: "task_runtime_update",
-  priority_change: "task_runtime_update",
-  clarification: "task_feedback",
-  correction: "task_feedback",
-  guidance: "task_feedback",
-  approval: "task_feedback",
+  update: 'task_progress',
+  feedback: 'task_feedback',
+  context_change: 'task_runtime_update',
+  requirement_change: 'task_runtime_update',
+  priority_change: 'task_runtime_update',
+  clarification: 'task_feedback',
+  correction: 'task_feedback',
+  guidance: 'task_feedback',
+  approval: 'task_feedback',
 };
 
-const MESSAGE_TYPE_TO_MATRIX_EVENT: Record<string, "progress" | "error" | "status_change"> = {
-  update: "progress",
-  feedback: "progress",
-  context_change: "progress",
-  requirement_change: "progress",
-  priority_change: "progress",
-  clarification: "progress",
-  correction: "progress",
-  guidance: "progress",
-  approval: "progress",
+const MESSAGE_TYPE_TO_MATRIX_EVENT: Record<string, 'progress' | 'error' | 'status_change'> = {
+  update: 'progress',
+  feedback: 'progress',
+  context_change: 'progress',
+  requirement_change: 'progress',
+  priority_change: 'progress',
+  clarification: 'progress',
+  correction: 'progress',
+  guidance: 'progress',
+  approval: 'progress',
 };
 
 export async function sendTaskMessage(
@@ -68,15 +68,14 @@ export async function sendTaskMessage(
     throw new Error(`Task ${params.task_id} does not have a workspace block`);
   }
 
-  if (task.status !== "running" && task.status !== "paused") {
+  if (task.status !== 'running' && task.status !== 'paused') {
     throw new Error(`Cannot send message to task with status: ${task.status}`);
   }
 
   const timestamp = Date.now();
   const messageId = `msg-${timestamp}`;
 
-  const workspaceEventType =
-    MESSAGE_TYPE_TO_WORKSPACE_EVENT[params.message_type] || "task_message";
+  const workspaceEventType = MESSAGE_TYPE_TO_WORKSPACE_EVENT[params.message_type] || 'task_message';
 
   await deps.workspace.appendEvent(task.agentId, task.workspaceBlockId, {
     timestamp,
@@ -90,8 +89,7 @@ export async function sendTaskMessage(
   });
 
   if (deps.matrix && task.matrixRoom) {
-    const matrixEventType =
-      MESSAGE_TYPE_TO_MATRIX_EVENT[params.message_type] || "progress";
+    const matrixEventType = MESSAGE_TYPE_TO_MATRIX_EVENT[params.message_type] || 'progress';
 
     await deps.matrix.sendTaskUpdate(
       task.matrixRoom.roomId,

@@ -1,37 +1,29 @@
-import { z } from "zod";
-import { LettaClient } from "../letta-client.js";
-import { WorkspaceManager } from "../workspace-manager.js";
-import { ExecutionManager } from "../execution-manager.js";
-import { TaskRegistry } from "../task-registry.js";
-import type { ExecutionRequest } from "../types/execution.js";
+import { z } from 'zod';
+import { LettaClient } from '../letta-client.js';
+import { WorkspaceManager } from '../workspace-manager.js';
+import { ExecutionManager } from '../execution-manager.js';
+import { TaskRegistry } from '../task-registry.js';
+import type { ExecutionRequest } from '../types/execution.js';
 
 export const ExecuteTaskSchema = z.object({
-  agent_id: z.string().describe("ID of the Letta agent requesting the task"),
-  task_description: z
-    .string()
-    .describe("Natural language description of the task to execute"),
-  idempotency_key: z
-    .string()
-    .optional()
-    .describe("Optional key to prevent duplicate execution"),
-  timeout_ms: z
-    .number()
-    .optional()
-    .describe("Optional task execution timeout in milliseconds"),
+  agent_id: z.string().describe('ID of the Letta agent requesting the task'),
+  task_description: z.string().describe('Natural language description of the task to execute'),
+  idempotency_key: z.string().optional().describe('Optional key to prevent duplicate execution'),
+  timeout_ms: z.number().optional().describe('Optional task execution timeout in milliseconds'),
   sync: z
     .boolean()
     .optional()
     .default(false)
-    .describe("If true, wait for task completion; if false, return immediately"),
+    .describe('If true, wait for task completion; if false, return immediately'),
   observers: z
     .array(z.string())
     .optional()
-    .describe("Optional list of Matrix user IDs to invite as observers (e.g., @user:domain.com)"),
+    .describe('Optional list of Matrix user IDs to invite as observers (e.g., @user:domain.com)'),
 });
 
 export type ExecuteTaskParams = z.infer<typeof ExecuteTaskSchema>;
 
-import type { MatrixRoomManager } from "../matrix-room-manager.js";
+import type { MatrixRoomManager } from '../matrix-room-manager.js';
 
 export interface ExecuteTaskDependencies {
   letta: LettaClient;
@@ -50,30 +42,25 @@ export async function executeTask(
 
   if (!deps.registry.canAcceptTask()) {
     return {
-      error: "Task queue full",
-      code: "QUEUE_FULL",
+      error: 'Task queue full',
+      code: 'QUEUE_FULL',
       status: 429,
     };
   }
 
-  const existingTask = deps.registry.register(
-    taskId,
-    params.agent_id,
-    params.idempotency_key
-  );
+  const existingTask = deps.registry.register(taskId, params.agent_id, params.idempotency_key);
 
   if (existingTask.taskId !== taskId) {
     return {
       task_id: existingTask.taskId,
       status: existingTask.status,
-      message: "Task already exists (idempotency key match)",
+      message: 'Task already exists (idempotency key match)',
       workspace_block_id: existingTask.workspaceBlockId,
     };
   }
 
   let blockId: string;
-  let workspace: any;
-  
+
   try {
     const result = await deps.workspace.createWorkspaceBlock({
       task_id: taskId,
@@ -84,35 +71,29 @@ export async function executeTask(
       },
     });
     blockId = result.blockId;
-    workspace = result.workspace;
     console.error(`[execute-task] Created workspace block ${blockId} for task ${taskId}`);
   } catch (error) {
     console.error(`[execute-task] Failed to create workspace block for task ${taskId}:`, error);
     return {
       task_id: taskId,
-      status: "failed",
+      status: 'failed',
       error: `Failed to create workspace block: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 
-  deps.registry.updateStatus(taskId, "queued", { workspaceBlockId: blockId });
+  deps.registry.updateStatus(taskId, 'queued', { workspaceBlockId: blockId });
 
   if (!params.sync) {
     console.error(`[execute-task] Calling executeTaskAsync for task ${taskId}`);
-    executeTaskAsync(
-      taskId,
-      params,
-      blockId,
-      deps
-    ).catch((error) => {
+    executeTaskAsync(taskId, params, blockId, deps).catch((error) => {
       console.error(`Task ${taskId} failed:`, error);
     });
 
     return {
       task_id: taskId,
-      status: "queued",
+      status: 'queued',
       workspace_block_id: blockId,
-      message: "Task queued for execution",
+      message: 'Task queued for execution',
     };
   }
 
@@ -122,10 +103,11 @@ export async function executeTask(
       setTimeout(() => {
         resolve({
           task_id: taskId,
-          status: "running",
+          status: 'running',
           workspace_block_id: blockId,
-          message: "Task started but execution is taking longer than expected. Use get_task_status to check progress.",
-          timeout_hint: "Response timeout reached, task continues in background",
+          message:
+            'Task started but execution is taking longer than expected. Use get_task_status to check progress.',
+          timeout_hint: 'Response timeout reached, task continues in background',
         });
       }, MCP_RESPONSE_TIMEOUT);
     });
@@ -138,7 +120,7 @@ export async function executeTask(
   } catch (error) {
     return {
       task_id: taskId,
-      status: "failed",
+      status: 'failed',
       workspace_block_id: blockId,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -153,21 +135,20 @@ async function executeTaskAsync(
 ): Promise<Record<string, unknown>> {
   console.error(`[execute-task] executeTaskAsync started for task ${taskId}`);
   try {
-    deps.registry.updateStatus(taskId, "running");
+    deps.registry.updateStatus(taskId, 'running');
     console.error(`[execute-task] Task ${taskId} status updated to running`);
 
     // Create Matrix room if Matrix is enabled
     let roomInfo: any = null;
     if (deps.matrix) {
-      const defaultObservers = (process.env.MATRIX_DEFAULT_HUMAN_OBSERVERS || "")
-        .split(",")
+      const defaultObservers = (process.env.MATRIX_DEFAULT_HUMAN_OBSERVERS || '')
+        .split(',')
         .map((observer) => observer.trim())
         .filter((observer) => observer.length > 0);
 
-      const allObservers = [
-        ...defaultObservers,
-        ...(params.observers || []),
-      ].filter((observer) => observer.length > 0);
+      const allObservers = [...defaultObservers, ...(params.observers || [])].filter(
+        (observer) => observer.length > 0
+      );
 
       try {
         roomInfo = await deps.matrix.createTaskRoom({
@@ -188,12 +169,12 @@ async function executeTaskAsync(
     }
 
     await deps.workspace.updateWorkspace(params.agent_id, workspaceBlockId, {
-      status: "running",
+      status: 'running',
       events: [
         {
           timestamp: Date.now(),
-          type: "task_started",
-          message: "Task execution started",
+          type: 'task_started',
+          message: 'Task execution started',
           data: roomInfo ? { matrix_room_id: roomInfo.roomId } : undefined,
         },
       ],
@@ -210,7 +191,7 @@ async function executeTaskAsync(
     const result = await deps.execution.execute(executionRequest, (event) => {
       const workspaceEvent = {
         timestamp: event.timestamp,
-        type: "task_progress" as const,
+        type: 'task_progress' as const,
         message: `OpenCode event: ${event.type}`,
         data: { event_type: event.type, event_data: event.data },
       };
@@ -220,10 +201,7 @@ async function executeTaskAsync(
           events: [workspaceEvent],
         })
         .catch((error) => {
-          console.error(
-            `Failed to update workspace with event for task ${taskId}:`,
-            error
-          );
+          console.error(`Failed to update workspace with event for task ${taskId}:`, error);
         });
 
       if (deps.matrix && roomInfo) {
@@ -232,23 +210,20 @@ async function executeTaskAsync(
             roomInfo.roomId,
             taskId,
             `${event.type}: ${String(event.data)}`,
-            "progress"
+            'progress'
           )
           .catch((error) => {
-            console.error(
-              `Failed to send Matrix update for task ${taskId}:`,
-              error
-            );
+            console.error(`Failed to send Matrix update for task ${taskId}:`, error);
           });
       }
     });
 
     const finalStatus =
-      result.status === "success"
-        ? "completed"
-        : result.status === "timeout"
-        ? "timeout"
-        : "failed";
+      result.status === 'success'
+        ? 'completed'
+        : result.status === 'timeout'
+          ? 'timeout'
+          : 'failed';
 
     const notificationMessage = formatCompletionNotification(
       taskId,
@@ -261,15 +236,15 @@ async function executeTaskAsync(
     deps.registry.updateStatus(taskId, finalStatus);
 
     // Send completion message to Matrix room if Matrix is enabled and room was created
-    console.error(`[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`);
+    console.error(
+      `[execute-task] Checking Matrix room for task ${taskId}: matrix=${!!deps.matrix}, roomInfo=${!!roomInfo}`
+    );
     if (deps.matrix && roomInfo) {
       try {
-        console.error(`[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`);
-        await deps.matrix.closeTaskRoom(
-          roomInfo.roomId,
-          taskId,
-          notificationMessage
+        console.error(
+          `[execute-task] Sending completion message to Matrix room ${roomInfo.roomId}`
         );
+        await deps.matrix.closeTaskRoom(roomInfo.roomId, taskId, notificationMessage);
         console.error(`[execute-task] Matrix completion message sent successfully`);
         deps.registry.clearMatrixRoom(taskId);
       } catch (matrixError) {
@@ -283,12 +258,12 @@ async function executeTaskAsync(
         {
           timestamp: Date.now(),
           type:
-            result.status === "success"
-              ? "task_completed"
-              : result.status === "timeout"
-              ? "task_timeout"
-              : "task_failed",
-          message: result.error || "Task execution completed",
+            result.status === 'success'
+              ? 'task_completed'
+              : result.status === 'timeout'
+                ? 'task_timeout'
+                : 'task_failed',
+          message: result.error || 'Task execution completed',
           data: {
             exit_code: result.exitCode,
             duration_ms: result.durationMs,
@@ -299,8 +274,8 @@ async function executeTaskAsync(
       artifacts: [
         {
           timestamp: Date.now(),
-          type: result.status === "success" ? "output" : "error",
-          name: result.status === "success" ? "execution_output" : "execution_error",
+          type: result.status === 'success' ? 'output' : 'error',
+          name: result.status === 'success' ? 'execution_output' : 'execution_error',
           content: result.output,
         },
       ],
@@ -309,18 +284,26 @@ async function executeTaskAsync(
     // Send completion notification to the calling agent as a system_alert
     try {
       const systemAlert = JSON.stringify({
-        type: "system_alert",
+        type: 'system_alert',
         message: notificationMessage,
-        time: new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }),
+        time: new Date().toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          timeZoneName: 'short',
+        }),
       });
 
       await deps.letta.sendMessage(params.agent_id, {
-        role: "user",
+        role: 'user',
         content: systemAlert,
       });
-      console.error(`[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`);
+      console.error(
+        `[execute-task] Sent completion notification to agent ${params.agent_id} for task ${taskId}`
+      );
     } catch (notificationError) {
-      console.error(`[execute-task] Failed to send completion notification for task ${taskId}:`, notificationError);
+      console.error(
+        `[execute-task] Failed to send completion notification for task ${taskId}:`,
+        notificationError
+      );
     }
 
     await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
@@ -334,15 +317,15 @@ async function executeTaskAsync(
       output: result.output.slice(0, 5000),
     };
   } catch (error) {
-    deps.registry.updateStatus(taskId, "failed");
+    deps.registry.updateStatus(taskId, 'failed');
 
     try {
       await deps.workspace.updateWorkspace(params.agent_id, workspaceBlockId, {
-        status: "failed",
+        status: 'failed',
         events: [
           {
             timestamp: Date.now(),
-            type: "task_failed",
+            type: 'task_failed',
             message: error instanceof Error ? error.message : String(error),
           },
         ],
@@ -365,23 +348,31 @@ Error: ${errorMessage}
 The task execution encountered an error and could not be completed.`;
 
       const systemAlert = JSON.stringify({
-        type: "system_alert",
+        type: 'system_alert',
         message: notificationMessage,
-        time: new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "short" }),
+        time: new Date().toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          timeZoneName: 'short',
+        }),
       });
 
       await deps.letta.sendMessage(params.agent_id, {
-        role: "user",
+        role: 'user',
         content: systemAlert,
       });
-      console.error(`[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`);
+      console.error(
+        `[execute-task] Sent failure notification to agent ${params.agent_id} for task ${taskId}`
+      );
     } catch (notificationError) {
-      console.error(`[execute-task] Failed to send failure notification for task ${taskId}:`, notificationError);
+      console.error(
+        `[execute-task] Failed to send failure notification for task ${taskId}:`,
+        notificationError
+      );
     }
 
     return {
       task_id: taskId,
-      status: "failed",
+      status: 'failed',
       workspace_block_id: workspaceBlockId,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -394,10 +385,14 @@ function formatCompletionNotification(
   result: any,
   taskDescription: string
 ): string {
-  const emoji = status === "completed" ? "✅" : status === "timeout" ? "⏱️" : "❌";
-  const statusText = status === "completed" ? "Completed Successfully" : 
-                     status === "timeout" ? "Timed Out" : "Failed";
-  
+  const emoji = status === 'completed' ? '✅' : status === 'timeout' ? '⏱️' : '❌';
+  const statusText =
+    status === 'completed'
+      ? 'Completed Successfully'
+      : status === 'timeout'
+        ? 'Timed Out'
+        : 'Failed';
+
   let message = `${emoji} OpenCode Task ${statusText}
 
 Task ID: ${taskId}

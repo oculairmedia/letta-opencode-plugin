@@ -16,7 +16,7 @@ export interface LettaAgent {
 export interface LettaMessage {
   id: string;
   agent_id: string;
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
   created_at: string;
 }
@@ -48,7 +48,7 @@ export interface AttachMemoryBlockRequest {
 }
 
 export interface SendMessageRequest {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 

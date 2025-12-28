@@ -9,8 +9,8 @@ export interface RoomInfo {
 
 export interface Participant {
   id: string;
-  type: "agent" | "human";
-  role: "calling_agent" | "dev_agent" | "observer";
+  type: 'agent' | 'human';
+  role: 'calling_agent' | 'dev_agent' | 'observer';
   invitedAt: number;
 }
 

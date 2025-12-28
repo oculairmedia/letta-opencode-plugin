@@ -1,5 +1,5 @@
-import type { TaskRegistryEntry, TaskQueueConfig } from "./types/task.js";
-import type { RoomInfo } from "./types/matrix.js";
+import type { TaskRegistryEntry, TaskQueueConfig } from './types/task.js';
+import type { RoomInfo } from './types/matrix.js';
 
 export class TaskRegistry {
   private tasks: Map<string, TaskRegistryEntry> = new Map();
@@ -22,11 +22,7 @@ export class TaskRegistry {
     const expiry = now - this.config.idempotencyWindowMs;
 
     for (const [taskId, entry] of this.tasks.entries()) {
-      if (
-        entry.completedAt &&
-        entry.completedAt < expiry &&
-        entry.status !== "running"
-      ) {
+      if (entry.completedAt && entry.completedAt < expiry && entry.status !== 'running') {
         this.tasks.delete(taskId);
         if (entry.idempotencyKey) {
           this.idempotencyKeys.delete(entry.idempotencyKey);
@@ -35,11 +31,7 @@ export class TaskRegistry {
     }
   }
 
-  register(
-    taskId: string,
-    agentId: string,
-    idempotencyKey?: string
-  ): TaskRegistryEntry {
+  register(taskId: string, agentId: string, idempotencyKey?: string): TaskRegistryEntry {
     if (idempotencyKey && this.idempotencyKeys.has(idempotencyKey)) {
       const existingTaskId = this.idempotencyKeys.get(idempotencyKey)!;
       const existingTask = this.tasks.get(existingTaskId);
@@ -52,7 +44,7 @@ export class TaskRegistry {
       taskId,
       agentId,
       idempotencyKey,
-      status: "queued",
+      status: 'queued',
       createdAt: Date.now(),
     };
 
@@ -66,7 +58,7 @@ export class TaskRegistry {
 
   updateStatus(
     taskId: string,
-    status: TaskRegistryEntry["status"],
+    status: TaskRegistryEntry['status'],
     options?: {
       workspaceBlockId?: string;
     }
@@ -74,11 +66,11 @@ export class TaskRegistry {
     const task = this.tasks.get(taskId);
     if (task) {
       task.status = status;
-      if (status === "running" && !task.startedAt) {
+      if (status === 'running' && !task.startedAt) {
         task.startedAt = Date.now();
       }
       if (
-        (status === "completed" || status === "failed" || status === "timeout") &&
+        (status === 'completed' || status === 'failed' || status === 'timeout') &&
         !task.completedAt
       ) {
         task.completedAt = Date.now();
@@ -94,9 +86,7 @@ export class TaskRegistry {
   }
 
   getRunningTasksCount(): number {
-    return Array.from(this.tasks.values()).filter(
-      (t) => t.status === "running"
-    ).length;
+    return Array.from(this.tasks.values()).filter((t) => t.status === 'running').length;
   }
 
   canAcceptTask(): boolean {

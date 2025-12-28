@@ -1,13 +1,17 @@
-import { z } from "zod";
-import type { TaskRegistry } from "../task-registry.js";
-import type { WorkspaceManager } from "../workspace-manager.js";
-import type { MatrixRoomManager } from "../matrix-room-manager.js";
+import { z } from 'zod';
+import type { TaskRegistry } from '../task-registry.js';
+import type { WorkspaceManager } from '../workspace-manager.js';
+import type { MatrixRoomManager } from '../matrix-room-manager.js';
 
 export const GetTaskHistorySchema = z.object({
   task_id: z.string(),
   include_artifacts: z.boolean().default(false),
-  events_limit: z.number().optional().default(100).describe("Maximum number of events to return (default: 100, -1 for all)"),
-  events_offset: z.number().optional().default(0).describe("Number of events to skip (default: 0)"),
+  events_limit: z
+    .number()
+    .optional()
+    .default(100)
+    .describe('Maximum number of events to return (default: 100, -1 for all)'),
+  events_offset: z.number().optional().default(0).describe('Number of events to skip (default: 0)'),
 });
 
 export type GetTaskHistoryParams = z.infer<typeof GetTaskHistorySchema>;
@@ -50,10 +54,7 @@ export async function getTaskHistory(
     throw new Error(`Task ${params.task_id} does not have a workspace block`);
   }
 
-  const workspaceBlock = await deps.workspace.getWorkspace(
-    task.agentId,
-    task.workspaceBlockId
-  );
+  const workspaceBlock = await deps.workspace.getWorkspace(task.agentId, task.workspaceBlockId);
 
   const allEvents = workspaceBlock.events.map((e) => ({
     timestamp: e.timestamp,
@@ -120,17 +121,16 @@ export async function archiveTaskConversation(
     throw new Error(`Task ${params.task_id} does not have a communication channel to archive`);
   }
 
-  if (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-    throw new Error(`Cannot archive task with status: ${task.status}. Task must be completed, failed, or cancelled.`);
+  if (task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled') {
+    throw new Error(
+      `Cannot archive task with status: ${task.status}. Task must be completed, failed, or cancelled.`
+    );
   }
 
-  const archiveInfo = await deps.matrix?.archiveTaskRoom(
-    task.matrixRoom.roomId,
-    task.taskId
-  );
+  const archiveInfo = await deps.matrix?.archiveTaskRoom(task.matrixRoom.roomId, task.taskId);
 
   if (!archiveInfo) {
-    throw new Error("Failed to archive task conversation");
+    throw new Error('Failed to archive task conversation');
   }
 
   const history = await getTaskHistory(
@@ -141,8 +141,8 @@ export async function archiveTaskConversation(
   if (task.workspaceBlockId) {
     await deps.workspace.appendEvent(task.agentId, task.workspaceBlockId, {
       timestamp: Date.now(),
-      type: "task_message",
-      message: params.summary || "Task conversation archived",
+      type: 'task_message',
+      message: params.summary || 'Task conversation archived',
       data: {
         archived_at: archiveInfo.archivedAt,
         message_count: history.events.length,
@@ -154,7 +154,7 @@ export async function archiveTaskConversation(
   return {
     task_id: params.task_id,
     archived_at: archiveInfo.archivedAt,
-    archive_location: task.workspaceBlockId || "unknown",
+    archive_location: task.workspaceBlockId || 'unknown',
     message_count: history.events.length,
   };
 }

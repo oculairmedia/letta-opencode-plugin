@@ -1,6 +1,6 @@
-import { z } from "zod";
-import type { TaskRegistry } from "../task-registry.js";
-import type { WorkspaceManager } from "../workspace-manager.js";
+import { z } from 'zod';
+import type { TaskRegistry } from '../task-registry.js';
+import type { WorkspaceManager } from '../workspace-manager.js';
 
 export const GetTaskStatusSchema = z.object({
   task_id: z.string(),
@@ -36,18 +36,13 @@ export async function getTaskStatus(
 
   if (task.workspaceBlockId) {
     try {
-      const workspace = await deps.workspace.getWorkspace(
-        task.agentId,
-        task.workspaceBlockId
-      );
-      recentEvents = workspace.events
-        .slice(-5)
-        .map((e) => ({
-          timestamp: e.timestamp,
-          type: e.type,
-          message: e.message,
-        }));
-    } catch (error) {
+      const workspace = await deps.workspace.getWorkspace(task.agentId, task.workspaceBlockId);
+      recentEvents = workspace.events.slice(-5).map((e) => ({
+        timestamp: e.timestamp,
+        type: e.type,
+        message: e.message,
+      }));
+    } catch {
       // Workspace not yet available or error reading
     }
   }

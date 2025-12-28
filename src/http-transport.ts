@@ -17,10 +17,8 @@ function log(...args: unknown[]): void {
 }
 
 class InMemoryEventStore {
-  private events: Map<
-    string,
-    { streamId: string; message: unknown; timestamp: number }
-  > = new Map();
+  private events: Map<string, { streamId: string; message: unknown; timestamp: number }> =
+    new Map();
   private readonly maxAge: number = 3600000; // 1 hour
   private readonly maxEventsPerStream: number = 1000;
 
@@ -195,7 +193,7 @@ export async function runHTTP(server: Server): Promise<HTTPServerHandle> {
     try {
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
       const agentIdHeader = req.headers['x-agent-id'] as string | undefined;
-      
+
       if (req.body?.method === 'tools/call' && agentIdHeader) {
         const args = req.body.params?.arguments || {};
         if (!args.agent_id) {
@@ -203,7 +201,7 @@ export async function runHTTP(server: Server): Promise<HTTPServerHandle> {
           log(`Injected agent_id from x-agent-id header: ${agentIdHeader}`);
         }
       }
-      
+
       let transport: StreamableHTTPServerTransport | undefined;
 
       if (sessionId && transports[sessionId]) {
@@ -361,7 +359,9 @@ export async function runHTTP(server: Server): Promise<HTTPServerHandle> {
     console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);
     console.log(`Health check: http://localhost:${PORT}/health`);
     console.log(`Protocol versions: ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')}`);
-    console.log(`Security: Origin validation enabled, localhost binding (${HOST}), DNS rebinding protection active`);
+    console.log(
+      `Security: Origin validation enabled, localhost binding (${HOST}), DNS rebinding protection active`
+    );
   });
 
   const shutdownHandler = async () => {

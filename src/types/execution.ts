@@ -19,7 +19,7 @@ export interface ExecutionRequest {
 
 export interface ExecutionResult {
   taskId: string;
-  status: "success" | "timeout" | "error";
+  status: 'success' | 'timeout' | 'error';
   exitCode?: number;
   output: string;
   error?: string;

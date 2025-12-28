@@ -1,14 +1,14 @@
-import { LettaClient } from "./letta-client.js";
+import { LettaClient } from './letta-client.js';
 import type {
   WorkspaceBlock,
   WorkspaceEvent,
   WorkspaceArtifact,
   CreateWorkspaceRequest,
   UpdateWorkspaceRequest,
-} from "./types/workspace.js";
+} from './types/workspace.js';
 
-const WORKSPACE_VERSION = "1.0.0";
-const WORKSPACE_LABEL = "opencode_workspace";
+const WORKSPACE_VERSION = '1.0.0';
+const WORKSPACE_LABEL = 'opencode_workspace';
 const DEFAULT_MAX_EVENTS = 50;
 
 export class WorkspaceManager {
@@ -31,7 +31,7 @@ export class WorkspaceManager {
       events: [
         {
           timestamp: Date.now(),
-          type: "task_progress",
+          type: 'task_progress',
           message: `[System: Pruned ${pruned} older events to stay within ${this.maxEvents} event limit]`,
         },
         ...recentEvents,
@@ -46,7 +46,7 @@ export class WorkspaceManager {
       version: WORKSPACE_VERSION,
       task_id: request.task_id,
       agent_id: request.agent_id,
-      status: "pending",
+      status: 'pending',
       created_at: Date.now(),
       updated_at: Date.now(),
       events: [],
@@ -58,9 +58,10 @@ export class WorkspaceManager {
 
     const block = await this.letta.createMemoryBlock(request.agent_id, {
       label: blockLabel,
-      description: "OpenCode task execution workspace. Monitor 'status' field for current state (pending/running/completed/failed/timeout). The 'events' array contains chronological task progress (most recent last). The 'artifacts' array contains task outputs. Check 'updated_at' to see when last modified.",
+      description:
+        "OpenCode task execution workspace. Monitor 'status' field for current state (pending/running/completed/failed/timeout). The 'events' array contains chronological task progress (most recent last). The 'artifacts' array contains task outputs. Check 'updated_at' to see when last modified.",
       value: JSON.stringify(workspace),
-      limit: parseInt(process.env.WORKSPACE_BLOCK_LIMIT || "50000", 10),
+      limit: parseInt(process.env.WORKSPACE_BLOCK_LIMIT || '50000', 10),
     });
 
     try {
@@ -118,8 +119,8 @@ export class WorkspaceManager {
 
     // Validate size before updating
     const serialized = JSON.stringify(prunedWorkspace);
-    const blockLimit = parseInt(process.env.WORKSPACE_BLOCK_LIMIT || "50000", 10);
-    
+    const blockLimit = parseInt(process.env.WORKSPACE_BLOCK_LIMIT || '50000', 10);
+
     if (serialized.length > blockLimit) {
       console.warn(
         `[workspace-manager] Workspace block ${blockId} exceeds limit: ${serialized.length} > ${blockLimit} chars`
@@ -133,11 +134,7 @@ export class WorkspaceManager {
     return prunedWorkspace;
   }
 
-  async appendEvent(
-    agentId: string,
-    blockId: string,
-    event: WorkspaceEvent
-  ): Promise<void> {
+  async appendEvent(agentId: string, blockId: string, event: WorkspaceEvent): Promise<void> {
     await this.updateWorkspace(agentId, blockId, {
       events: [event],
     });
@@ -153,10 +150,7 @@ export class WorkspaceManager {
     });
   }
 
-  async getWorkspace(
-    agentId: string,
-    blockId: string
-  ): Promise<WorkspaceBlock> {
+  async getWorkspace(agentId: string, blockId: string): Promise<WorkspaceBlock> {
     const blocks = await this.letta.listMemoryBlocks(agentId);
     const block = blocks.find((b) => b.id === blockId);
 
@@ -189,17 +183,11 @@ export class WorkspaceManager {
     return null;
   }
 
-  async detachWorkspaceBlock(
-    agentId: string,
-    blockId: string
-  ): Promise<void> {
+  async detachWorkspaceBlock(agentId: string, blockId: string): Promise<void> {
     try {
       await this.letta.detachMemoryBlock(agentId, blockId);
     } catch (error) {
-      console.error(
-        `Failed to detach memory block ${blockId} from agent ${agentId}:`,
-        error
-      );
+      console.error(`Failed to detach memory block ${blockId} from agent ${agentId}:`, error);
     }
   }
 }

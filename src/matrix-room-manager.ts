@@ -1,15 +1,15 @@
-import { MatrixClientWrapper } from "./matrix-client.js";
-import type { RoomInfo, Participant, CreateRoomRequest, ArchiveInfo } from "./types/matrix.js";
+import { MatrixClientWrapper } from './matrix-client.js';
+import type { RoomInfo, Participant, CreateRoomRequest, ArchiveInfo } from './types/matrix.js';
 
-const DEBUG = process.env.DEBUG === "true";
+const DEBUG = process.env.DEBUG === 'true';
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function buildSummaryHtml(summary: string): string {
@@ -21,17 +21,17 @@ function buildSummaryHtml(summary: string): string {
   const blocks = normalized.split(/\n{2,}/);
   const [headline, ...rest] = blocks;
 
-  const headlineHtml = escapeHtml(headline).replace(/\n/g, "<br>");
+  const headlineHtml = escapeHtml(headline).replace(/\n/g, '<br>');
   const bodyHtml = rest
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br>")}</p>`)
-    .join("");
+    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
+    .join('');
 
   return `<h3>${headlineHtml}</h3>${bodyHtml}<p><em>This room will remain available for review.</em></p>`;
 }
 
 function log(...args: unknown[]): void {
   if (DEBUG) {
-    console.error("[matrix-room-manager]", ...args);
+    console.error('[matrix-room-manager]', ...args);
   }
 }
 
@@ -41,7 +41,7 @@ export class MatrixRoomManager {
 
   constructor(matrixClient: MatrixClientWrapper) {
     this.matrixClient = matrixClient;
-    this.matrixApiUrl = process.env.MATRIX_API_URL || "http://192.168.50.90:8004";
+    this.matrixApiUrl = process.env.MATRIX_API_URL || 'http://192.168.50.90:8004';
   }
 
   getMatrixClient(): MatrixClientWrapper {
@@ -76,7 +76,9 @@ export class MatrixRoomManager {
     console.log(`[matrix-room-manager] humanObservers:`, request.humanObservers);
 
     // Try to use the existing agent room instead of creating a new one
-    console.error(`[matrix-room-manager] Attempting to fetch existing room for agent ${request.callingAgentId}`);
+    console.error(
+      `[matrix-room-manager] Attempting to fetch existing room for agent ${request.callingAgentId}`
+    );
     const existingRoomId = await this.getAgentRoom(request.callingAgentId);
     console.error(`[matrix-room-manager] getAgentRoom returned:`, existingRoomId);
 
@@ -91,9 +93,9 @@ export class MatrixRoomManager {
 <p><strong>Task ID:</strong> <code>${request.taskId}</code></p>
 <p><strong>Description:</strong> ${request.taskDescription}</p>`,
         {
-          "io.letta.task": {
+          'io.letta.task': {
             task_id: request.taskId,
-            event_type: "task_created",
+            event_type: 'task_created',
           },
         }
       );
@@ -101,7 +103,7 @@ export class MatrixRoomManager {
       // Invite human observers if specified
       if (request.humanObservers) {
         for (const humanId of request.humanObservers) {
-          if (humanId.startsWith("@")) {
+          if (humanId.startsWith('@')) {
             try {
               await this.matrixClient.inviteUser(existingRoomId, humanId);
               log(`Invited observer ${humanId} to existing room ${existingRoomId}`);
@@ -118,8 +120,8 @@ export class MatrixRoomManager {
         participants: [
           {
             id: request.callingAgentId,
-            type: "agent",
-            role: "calling_agent",
+            type: 'agent',
+            role: 'calling_agent',
             invitedAt: Date.now(),
           },
         ],
@@ -141,16 +143,16 @@ export class MatrixRoomManager {
 
     participants.push({
       id: request.callingAgentId,
-      type: "agent",
-      role: "calling_agent",
+      type: 'agent',
+      role: 'calling_agent',
       invitedAt: Date.now(),
     });
 
     if (request.devAgentId) {
       participants.push({
         id: request.devAgentId,
-        type: "agent",
-        role: "dev_agent",
+        type: 'agent',
+        role: 'dev_agent',
         invitedAt: Date.now(),
       });
     }
@@ -159,8 +161,8 @@ export class MatrixRoomManager {
       for (const humanId of request.humanObservers) {
         participants.push({
           id: humanId,
-          type: "human",
-          role: "observer",
+          type: 'human',
+          role: 'observer',
           invitedAt: Date.now(),
         });
       }
@@ -168,7 +170,7 @@ export class MatrixRoomManager {
 
     const inviteList: string[] = [];
     for (const participant of participants) {
-      if (participant.id.startsWith("@")) {
+      if (participant.id.startsWith('@')) {
         inviteList.push(participant.id);
       }
     }
@@ -181,9 +183,9 @@ export class MatrixRoomManager {
       },
       users_default: 0,
       events: {
-        "m.room.name": 50,
-        "m.room.power_levels": 100,
-        "im.vector.modular.widgets": 50,
+        'm.room.name': 50,
+        'm.room.power_levels': 100,
+        'im.vector.modular.widgets': 50,
       },
       events_default: 0,
       state_default: 50,
@@ -195,7 +197,7 @@ export class MatrixRoomManager {
 
     if (request.humanObservers) {
       for (const humanId of request.humanObservers) {
-        if (humanId.startsWith("@")) {
+        if (humanId.startsWith('@')) {
           powerLevelContentOverride.users[humanId] = 0;
         }
       }
@@ -205,7 +207,7 @@ export class MatrixRoomManager {
       name: roomName,
       topic,
       invite: inviteList,
-      visibility: "private",
+      visibility: 'private',
       powerLevelContentOverride,
     });
 
@@ -219,12 +221,12 @@ export class MatrixRoomManager {
 <p><strong>Description:</strong> ${request.taskDescription}</p>
 <p><strong>Participants:</strong></p>
 <ul>
-${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")}
+${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join('\n')}
 </ul>`,
       {
-        "io.letta.task": {
+        'io.letta.task': {
           task_id: request.taskId,
-          event_type: "task_created",
+          event_type: 'task_created',
         },
       }
     );
@@ -244,11 +246,11 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
     log(`Closing task room ${roomId} for task ${taskId}`);
 
     const trimmedSummary = summary.trim();
-    const plainText = trimmedSummary || "Task completed.";
+    const plainText = trimmedSummary || 'Task completed.';
     const metadata: Record<string, unknown> = {
-      "io.letta.task": {
+      'io.letta.task': {
         task_id: taskId,
-        event_type: "task_completed",
+        event_type: 'task_completed',
       },
     };
 
@@ -287,9 +289,9 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
 
   async inviteHumanObserver(roomId: string, humanUserId: string): Promise<void> {
     log(`Inviting human observer ${humanUserId} to room ${roomId}`);
-    
+
     await this.matrixClient.inviteUser(roomId, humanUserId);
-    
+
     await this.matrixClient.sendMessage(
       roomId,
       `👤 Human observer ${humanUserId} has been invited to observe and provide guidance.`
@@ -298,21 +300,18 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
 
   async inviteToRoom(roomId: string, userId: string, readOnly: boolean = true): Promise<void> {
     log(`Inviting user ${userId} to room ${roomId} (read-only: ${readOnly})`);
-    
+
     await this.matrixClient.inviteUser(roomId, userId);
-    
-    const role = readOnly ? "observer" : "participant";
-    await this.matrixClient.sendMessage(
-      roomId,
-      `👤 User ${userId} has been invited as ${role}.`
-    );
+
+    const role = readOnly ? 'observer' : 'participant';
+    await this.matrixClient.sendMessage(roomId, `👤 User ${userId} has been invited as ${role}.`);
   }
 
   async removeFromRoom(roomId: string, userId: string): Promise<void> {
     log(`Removing user ${userId} from room ${roomId}`);
-    
-    await this.matrixClient.kickUser(roomId, userId, "Removed from task room");
-    
+
+    await this.matrixClient.kickUser(roomId, userId, 'Removed from task room');
+
     await this.matrixClient.sendMessage(
       roomId,
       `👤 User ${userId} has been removed from the room.`
@@ -323,10 +322,10 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
     roomId: string,
     taskId: string,
     message: string,
-    eventType: "progress" | "error" | "status_change"
+    eventType: 'progress' | 'error' | 'status_change'
   ): Promise<void> {
     await this.matrixClient.sendMessage(roomId, message, {
-      "io.letta.task": {
+      'io.letta.task': {
         task_id: taskId,
         event_type: eventType,
       },
@@ -336,7 +335,7 @@ ${participants.map((p) => `<li>${p.role}: <code>${p.id}</code></li>`).join("\n")
   async sendControlSignal(
     roomId: string,
     taskId: string,
-    control: "cancel" | "pause" | "resume",
+    control: 'cancel' | 'pause' | 'resume',
     reason?: string
   ): Promise<void> {
     await this.matrixClient.sendControlSignal(roomId, taskId, control, reason);

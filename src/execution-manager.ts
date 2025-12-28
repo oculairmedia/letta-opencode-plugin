@@ -1,25 +1,24 @@
-import { spawn } from "child_process";
+import { spawn } from 'child_process';
 import type {
   ExecutionConfig,
   ExecutionRequest,
   ExecutionResult,
   ContainerInfo,
-} from "./types/execution.js";
-import { OpenCodeClientManager } from "./opencode-client-manager.js";
-import type { OpenCodeEvent } from "./types/opencode.js";
+} from './types/execution.js';
+import { OpenCodeClientManager } from './opencode-client-manager.js';
+import type { OpenCodeEvent } from './types/opencode.js';
 
 export class ExecutionManager {
   private config: ExecutionConfig;
   private activeContainers: Map<string, ContainerInfo> = new Map();
   private openCodeClient?: OpenCodeClientManager;
-  private eventHandlers: Map<
-    string,
-    (event: OpenCodeEvent) => void
-  > = new Map();
+  private eventHandlers: Map<string, (event: OpenCodeEvent) => void> = new Map();
 
   constructor(config: ExecutionConfig) {
     this.config = config;
-    console.log(`[ExecutionManager] Initializing with openCodeServerEnabled=${config.openCodeServerEnabled}, url=${config.openCodeServerUrl}`);
+    console.log(
+      `[ExecutionManager] Initializing with openCodeServerEnabled=${config.openCodeServerEnabled}, url=${config.openCodeServerUrl}`
+    );
 
     if (config.openCodeServerEnabled && config.openCodeServerUrl) {
       console.log(`[ExecutionManager] Creating OpenCodeClientManager`);
@@ -52,7 +51,7 @@ export class ExecutionManager {
     onEvent?: (event: OpenCodeEvent) => void
   ): Promise<ExecutionResult> {
     if (!this.openCodeClient) {
-      throw new Error("OpenCode client not initialized");
+      throw new Error('OpenCode client not initialized');
     }
 
     const startedAt = Date.now();
@@ -64,7 +63,7 @@ export class ExecutionManager {
       const session = await this.openCodeClient.createSession(
         request.taskId,
         request.agentId,
-        request.prompt  // This is now ignored, but kept for backward compatibility
+        request.prompt // This is now ignored, but kept for backward compatibility
       );
 
       const containerInfo: ContainerInfo = {
@@ -77,35 +76,41 @@ export class ExecutionManager {
 
       this.activeContainers.set(request.taskId, containerInfo);
 
-      let output = "";
+      let output = '';
       let error: string | undefined;
       let completed = false;
       let timedOut = false;
 
       const eventHandler = (event: OpenCodeEvent) => {
-        console.error(`[execution-manager] Event received for task ${request.taskId}: type=${event.type}`);
+        console.error(
+          `[execution-manager] Event received for task ${request.taskId}: type=${event.type}`
+        );
 
         if (onEvent) {
           onEvent(event);
         }
 
         switch (event.type) {
-          case "output":
+          case 'output':
             output += String(event.data);
             break;
-          case "error":
+          case 'error':
             error = String(event.data);
             break;
-          case "complete":
-            console.error(`[execution-manager] COMPLETE event received for task ${request.taskId}, setting completed=true`);
+          case 'complete':
+            console.error(
+              `[execution-manager] COMPLETE event received for task ${request.taskId}, setting completed=true`
+            );
             completed = true;
             break;
-          case "abort":
-            error = error || "Task aborted";
+          case 'abort':
+            error = error || 'Task aborted';
             completed = true;
             break;
           default:
-            console.error(`[execution-manager] Unhandled event type for task ${request.taskId}: ${event.type}`);
+            console.error(
+              `[execution-manager] Unhandled event type for task ${request.taskId}: ${event.type}`
+            );
         }
       };
 
@@ -113,15 +118,14 @@ export class ExecutionManager {
 
       // Step 2: Subscribe to events BEFORE sending prompt
       console.error(`[execution-manager] Subscribing to events for session ${session.sessionId}`);
-      this.openCodeClient.subscribeToEvents(
-        session.sessionId,
-        eventHandler,
-        (err) => {
-          console.error(`[execution-manager] Event subscription error for task ${request.taskId}:`, err.message);
-          error = err.message;
-          completed = true;
-        }
-      );
+      this.openCodeClient.subscribeToEvents(session.sessionId, eventHandler, (err) => {
+        console.error(
+          `[execution-manager] Event subscription error for task ${request.taskId}:`,
+          err.message
+        );
+        error = err.message;
+        completed = true;
+      });
 
       // Step 3: NOW send the prompt (events are already being listened to)
       console.error(`[execution-manager] Sending prompt to session ${session.sessionId}`);
@@ -136,17 +140,23 @@ export class ExecutionManager {
       let timeoutHandle: NodeJS.Timeout | null = null;
 
       const completionPromise = new Promise<void>((resolve) => {
-        console.error(`[execution-manager] Starting completion wait for task ${request.taskId}, timeout=${timeout}ms`);
+        console.error(
+          `[execution-manager] Starting completion wait for task ${request.taskId}, timeout=${timeout}ms`
+        );
         const checkInterval = setInterval(() => {
           if (completed) {
-            console.error(`[execution-manager] Task ${request.taskId} completed, resolving promise`);
+            console.error(
+              `[execution-manager] Task ${request.taskId} completed, resolving promise`
+            );
             clearInterval(checkInterval);
             if (timeoutHandle) {
               clearTimeout(timeoutHandle);
             }
             resolve();
           } else if (timedOut) {
-            console.error(`[execution-manager] Task ${request.taskId} timed out, resolving promise`);
+            console.error(
+              `[execution-manager] Task ${request.taskId} timed out, resolving promise`
+            );
             clearInterval(checkInterval);
             resolve();
           }
@@ -154,12 +164,12 @@ export class ExecutionManager {
 
         timeoutHandle = setTimeout(() => {
           if (!completed) {
-            console.error(`[execution-manager] Task ${request.taskId} timeout reached after ${timeout}ms`);
+            console.error(
+              `[execution-manager] Task ${request.taskId} timeout reached after ${timeout}ms`
+            );
             timedOut = true;
             clearInterval(checkInterval);
-            this.openCodeClient
-              ?.abortSession(session.sessionId)
-              .catch(console.error);
+            this.openCodeClient?.abortSession(session.sessionId).catch(console.error);
             resolve();
           }
         }, timeout);
@@ -167,13 +177,15 @@ export class ExecutionManager {
 
       console.error(`[execution-manager] Awaiting completion for task ${request.taskId}`);
       await completionPromise;
-      console.error(`[execution-manager] Completion promise resolved for task ${request.taskId}, completed=${completed}, timedOut=${timedOut}`);
+      console.error(
+        `[execution-manager] Completion promise resolved for task ${request.taskId}, completed=${completed}, timedOut=${timedOut}`
+      );
 
       const result: ExecutionResult = {
         taskId: request.taskId,
-        status: timedOut ? "timeout" : error ? "error" : "success",
-        output: output || "Task completed",
-        error: timedOut ? "Task execution timed out" : error,
+        status: timedOut ? 'timeout' : error ? 'error' : 'success',
+        output: output || 'Task completed',
+        error: timedOut ? 'Task execution timed out' : error,
         startedAt,
         completedAt: Date.now(),
         durationMs: Date.now() - startedAt,
@@ -187,9 +199,7 @@ export class ExecutionManager {
     }
   }
 
-  private async executeWithDocker(
-    request: ExecutionRequest
-  ): Promise<ExecutionResult> {
+  private async executeWithDocker(request: ExecutionRequest): Promise<ExecutionResult> {
     const startedAt = Date.now();
     const timeout = request.timeout || this.config.timeoutMs;
     const gracePeriod = this.config.gracePeriodMs || 5000;
@@ -204,12 +214,7 @@ export class ExecutionManager {
     this.activeContainers.set(request.taskId, containerInfo);
 
     try {
-      const result = await this.runContainer(
-        request,
-        containerId,
-        timeout,
-        gracePeriod
-      );
+      const result = await this.runContainer(request, containerId, timeout, gracePeriod);
       return {
         ...result,
         taskId: request.taskId,
@@ -227,52 +232,45 @@ export class ExecutionManager {
     containerId: string,
     timeout: number,
     gracePeriod: number
-  ): Promise<
-    Omit<ExecutionResult, "taskId" | "startedAt" | "completedAt" | "durationMs">
-  > {
+  ): Promise<Omit<ExecutionResult, 'taskId' | 'startedAt' | 'completedAt' | 'durationMs'>> {
     return new Promise((resolve) => {
-      const workspaceDir = this.config.workspaceDir || "/opt/stacks";
+      const workspaceDir = this.config.workspaceDir || '/opt/stacks';
       const taskWorkspace = `${workspaceDir}/${request.taskId}`;
-      
+
       const dockerArgs = [
-        "run",
-        "--rm",
-        "--name",
+        'run',
+        '--rm',
+        '--name',
         containerId,
-        "--label",
+        '--label',
         `task_id=${request.taskId}`,
-        "--label",
+        '--label',
         `agent_id=${request.agentId}`,
-        "-v",
+        '-v',
         `${taskWorkspace}:/workspace`,
-        "-w",
-        "/workspace",
+        '-w',
+        '/workspace',
       ];
 
       if (this.config.cpuLimit) {
-        dockerArgs.push("--cpus", this.config.cpuLimit);
+        dockerArgs.push('--cpus', this.config.cpuLimit);
       }
 
       if (this.config.memoryLimit) {
-        dockerArgs.push("--memory", this.config.memoryLimit);
+        dockerArgs.push('--memory', this.config.memoryLimit);
       }
 
-      dockerArgs.push(
-        this.config.image,
-        "opencode",
-        "run",
-        request.prompt
-      );
+      dockerArgs.push(this.config.image, 'opencode', 'run', request.prompt);
 
-      const proc = spawn("docker", dockerArgs);
+      const proc = spawn('docker', dockerArgs);
 
-      let output = "";
-      let errorOutput = "";
+      let output = '';
+      let errorOutput = '';
       let timeoutId: NodeJS.Timeout | null = null;
       let gracePeriodId: NodeJS.Timeout | null = null;
       let timedOut = false;
 
-      proc.stdout.on("data", (data) => {
+      proc.stdout.on('data', (data) => {
         const chunk = data.toString();
         output += chunk;
         if (output.length > 50000) {
@@ -280,7 +278,7 @@ export class ExecutionManager {
         }
       });
 
-      proc.stderr.on("data", (data) => {
+      proc.stderr.on('data', (data) => {
         const chunk = data.toString();
         errorOutput += chunk;
         if (errorOutput.length > 50000) {
@@ -290,33 +288,33 @@ export class ExecutionManager {
 
       timeoutId = setTimeout(() => {
         timedOut = true;
-        proc.kill("SIGTERM");
+        proc.kill('SIGTERM');
 
         gracePeriodId = setTimeout(() => {
-          proc.kill("SIGKILL");
+          proc.kill('SIGKILL');
         }, gracePeriod);
       }, timeout);
 
-      proc.on("close", (code) => {
+      proc.on('close', (code) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (gracePeriodId) clearTimeout(gracePeriodId);
 
         if (timedOut) {
           resolve({
-            status: "timeout",
+            status: 'timeout',
             exitCode: code ?? undefined,
             output: output || errorOutput,
-            error: "Task execution timed out",
+            error: 'Task execution timed out',
           });
         } else if (code === 0) {
           resolve({
-            status: "success",
+            status: 'success',
             exitCode: code,
-            output: output || "Task completed successfully",
+            output: output || 'Task completed successfully',
           });
         } else {
           resolve({
-            status: "error",
+            status: 'error',
             exitCode: code ?? undefined,
             output: output || errorOutput,
             error: errorOutput || `Process exited with code ${code}`,
@@ -324,12 +322,12 @@ export class ExecutionManager {
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on('error', (err) => {
         if (timeoutId) clearTimeout(timeoutId);
         if (gracePeriodId) clearTimeout(gracePeriodId);
 
         resolve({
-          status: "error",
+          status: 'error',
           output: output || errorOutput,
           error: `Failed to start container: ${err.message}`,
         });
@@ -354,11 +352,11 @@ export class ExecutionManager {
     }
 
     return new Promise((resolve) => {
-      const proc = spawn("docker", ["kill", containerInfo.containerId]);
-      proc.on("close", (code) => {
+      const proc = spawn('docker', ['kill', containerInfo.containerId]);
+      proc.on('close', (code) => {
         resolve(code === 0);
       });
-      proc.on("error", () => {
+      proc.on('error', () => {
         resolve(false);
       });
     });
@@ -371,18 +369,16 @@ export class ExecutionManager {
     }
 
     if (containerInfo.sessionId) {
-      console.warn(
-        "[ExecutionManager] Pause not supported for OpenCode server sessions"
-      );
+      console.warn('[ExecutionManager] Pause not supported for OpenCode server sessions');
       return false;
     }
 
     return new Promise((resolve) => {
-      const proc = spawn("docker", ["pause", containerInfo.containerId]);
-      proc.on("close", (code) => {
+      const proc = spawn('docker', ['pause', containerInfo.containerId]);
+      proc.on('close', (code) => {
         resolve(code === 0);
       });
-      proc.on("error", () => {
+      proc.on('error', () => {
         resolve(false);
       });
     });
@@ -395,18 +391,16 @@ export class ExecutionManager {
     }
 
     if (containerInfo.sessionId) {
-      console.warn(
-        "[ExecutionManager] Resume not supported for OpenCode server sessions"
-      );
+      console.warn('[ExecutionManager] Resume not supported for OpenCode server sessions');
       return false;
     }
 
     return new Promise((resolve) => {
-      const proc = spawn("docker", ["unpause", containerInfo.containerId]);
-      proc.on("close", (code) => {
+      const proc = spawn('docker', ['unpause', containerInfo.containerId]);
+      proc.on('close', (code) => {
         resolve(code === 0);
       });
-      proc.on("error", () => {
+      proc.on('error', () => {
         resolve(false);
       });
     });
@@ -431,7 +425,7 @@ export class ExecutionManager {
   async getTaskFiles(taskId: string): Promise<string[]> {
     const containerInfo = this.activeContainers.get(taskId);
     if (!containerInfo?.sessionId || !this.openCodeClient) {
-      throw new Error("Task not found or not using OpenCode server");
+      throw new Error('Task not found or not using OpenCode server');
     }
 
     return this.openCodeClient.listFiles(containerInfo.sessionId);
@@ -440,7 +434,7 @@ export class ExecutionManager {
   async readTaskFile(taskId: string, filePath: string): Promise<string> {
     const containerInfo = this.activeContainers.get(taskId);
     if (!containerInfo?.sessionId || !this.openCodeClient) {
-      throw new Error("Task not found or not using OpenCode server");
+      throw new Error('Task not found or not using OpenCode server');
     }
 
     return this.openCodeClient.readFile(containerInfo.sessionId, filePath);

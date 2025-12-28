@@ -11,11 +11,11 @@ export interface OpenCodeSession {
   taskId: string;
   agentId: string;
   startedAt: number;
-  status: "active" | "paused" | "completed" | "failed" | "cancelled";
+  status: 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
 }
 
 export interface OpenCodeEvent {
-  type: "start" | "output" | "error" | "tool_call" | "file_change" | "complete" | "abort";
+  type: 'start' | 'output' | 'error' | 'tool_call' | 'file_change' | 'complete' | 'abort';
   timestamp: number;
   sessionId: string;
   data: unknown;
@@ -23,13 +23,13 @@ export interface OpenCodeEvent {
 
 export interface FileOperation {
   path: string;
-  type: "create" | "modify" | "delete" | "read";
+  type: 'create' | 'modify' | 'delete' | 'read';
   timestamp: number;
 }
 
 export interface SessionInfo {
   sessionId: string;
-  status: "active" | "paused" | "completed" | "failed" | "cancelled";
+  status: 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
   files: FileOperation[];
   output: string;
   error?: string;

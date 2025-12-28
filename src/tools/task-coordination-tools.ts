@@ -1,7 +1,7 @@
-import { z } from "zod";
-import type { MatrixRoomManager } from "../matrix-room-manager.js";
-import { TaskRegistry } from "../task-registry.js";
-import type { TaskRegistryEntry } from "../types/task.js";
+import { z } from 'zod';
+import type { MatrixRoomManager } from '../matrix-room-manager.js';
+import { TaskRegistry } from '../task-registry.js';
+import type { TaskRegistryEntry } from '../types/task.js';
 
 export const ListTaskChannelsSchema = z.object({
   agent_id: z.string().optional(),
@@ -10,25 +10,19 @@ export const ListTaskChannelsSchema = z.object({
 
 export type ListTaskChannelsParams = z.infer<typeof ListTaskChannelsSchema>;
 
-const TaskChannelSummarySchema = z.object({
-  task_id: z.string(),
-  status: z.string(),
-  channel_id: z.string(),
-  created_at: z.number(),
-  workspace_block_id: z.string().optional(),
-  participants: z
-    .array(
-      z.object({
-        id: z.string(),
-        type: z.string(),
-        role: z.string(),
-        invited_at: z.number(),
-      })
-    )
-    .optional(),
-});
-
-export type TaskChannelSummary = z.infer<typeof TaskChannelSummarySchema>;
+export interface TaskChannelSummary {
+  task_id: string;
+  status: string;
+  channel_id: string;
+  created_at: number;
+  workspace_block_id?: string;
+  participants?: Array<{
+    id: string;
+    type: string;
+    role: string;
+    invited_at: number;
+  }>;
+}
 
 export const GetTaskChannelSchema = z
   .object({
@@ -36,7 +30,7 @@ export const GetTaskChannelSchema = z
     channel_id: z.string().optional(),
   })
   .refine((value) => Boolean(value.task_id || value.channel_id), {
-    message: "task_id or channel_id is required",
+    message: 'task_id or channel_id is required',
   });
 
 export type GetTaskChannelParams = z.infer<typeof GetTaskChannelSchema>;
@@ -44,14 +38,14 @@ export type GetTaskChannelParams = z.infer<typeof GetTaskChannelSchema>;
 export const SendTaskUpdateSchema = z.object({
   task_id: z.string(),
   message: z.string(),
-  event_type: z.enum(["progress", "error", "status_change"]).default("progress"),
+  event_type: z.enum(['progress', 'error', 'status_change']).default('progress'),
 });
 
 export type SendTaskUpdateParams = z.infer<typeof SendTaskUpdateSchema>;
 
 export const SendTaskControlSchema = z.object({
   task_id: z.string(),
-  control: z.enum(["cancel", "pause", "resume"]),
+  control: z.enum(['cancel', 'pause', 'resume']),
   reason: z.string().optional(),
 });
 
@@ -64,7 +58,7 @@ export interface TaskCoordinationDependencies {
 
 function ensureCoordination(deps: TaskCoordinationDependencies): MatrixRoomManager {
   if (!deps.matrix) {
-    throw new Error("Task coordination is not enabled for this deployment");
+    throw new Error('Task coordination is not enabled for this deployment');
   }
   return deps.matrix;
 }
@@ -107,7 +101,7 @@ export async function listTaskChannels(
       if (params.include_completed) {
         return true;
       }
-      return task.status === "queued" || task.status === "running";
+      return task.status === 'queued' || task.status === 'running';
     })
     .map((task) => mapTaskToSummary(task))
     .filter((summary): summary is TaskChannelSummary => summary !== null);
@@ -135,12 +129,12 @@ export async function getTaskChannel(
   }
 
   if (!task || !task.matrixRoom) {
-    throw new Error("Task communication channel not found for the specified task or channel id");
+    throw new Error('Task communication channel not found for the specified task or channel id');
   }
 
   const summary = mapTaskToSummary(task);
   if (!summary) {
-    throw new Error("Failed to construct task channel summary");
+    throw new Error('Failed to construct task channel summary');
   }
 
   return {
@@ -156,7 +150,7 @@ export async function sendTaskUpdate(
 
   const task = deps.registry.getTask(params.task_id);
   if (!task || !task.matrixRoom) {
-    throw new Error("Task does not have an associated communication channel");
+    throw new Error('Task does not have an associated communication channel');
   }
 
   await coordinator.sendTaskUpdate(
@@ -180,7 +174,7 @@ export async function sendTaskControl(
 
   const task = deps.registry.getTask(params.task_id);
   if (!task || !task.matrixRoom) {
-    throw new Error("Task does not have an associated communication channel");
+    throw new Error('Task does not have an associated communication channel');
   }
 
   await coordinator.sendControlSignal(

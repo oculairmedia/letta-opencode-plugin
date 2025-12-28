@@ -1,9 +1,9 @@
-import type { ExecutionManager } from "./execution-manager.js";
-import type { TaskRegistry } from "./task-registry.js";
-import type { WorkspaceManager } from "./workspace-manager.js";
-import type { MatrixRoomManager } from "./matrix-room-manager.js";
+import type { ExecutionManager } from './execution-manager.js';
+import type { TaskRegistry } from './task-registry.js';
+import type { WorkspaceManager } from './workspace-manager.js';
+import type { MatrixRoomManager } from './matrix-room-manager.js';
 
-export type ControlSignalType = "cancel" | "pause" | "resume";
+export type ControlSignalType = 'cancel' | 'pause' | 'resume';
 
 export interface ControlSignalRequest {
   taskId: string;
@@ -31,9 +31,7 @@ export interface ControlSignalHandlerDependencies {
 export class ControlSignalHandler {
   constructor(private deps: ControlSignalHandlerDependencies) {}
 
-  async handleControlSignal(
-    request: ControlSignalRequest
-  ): Promise<ControlSignalResult> {
+  async handleControlSignal(request: ControlSignalRequest): Promise<ControlSignalResult> {
     const task = this.deps.registry.getTask(request.taskId);
 
     if (!task) {
@@ -41,18 +39,18 @@ export class ControlSignalHandler {
         success: false,
         taskId: request.taskId,
         signal: request.signal,
-        error: "Task not found in registry",
+        error: 'Task not found in registry',
       };
     }
 
     const previousStatus = task.status;
 
     switch (request.signal) {
-      case "cancel":
+      case 'cancel':
         return this.handleCancel(request, previousStatus);
-      case "pause":
+      case 'pause':
         return this.handlePause(request, previousStatus);
-      case "resume":
+      case 'resume':
         return this.handleResume(request, previousStatus);
       default:
         return {
@@ -68,11 +66,15 @@ export class ControlSignalHandler {
     request: ControlSignalRequest,
     previousStatus: string
   ): Promise<ControlSignalResult> {
-    if (previousStatus === "completed" || previousStatus === "failed" || previousStatus === "cancelled") {
+    if (
+      previousStatus === 'completed' ||
+      previousStatus === 'failed' ||
+      previousStatus === 'cancelled'
+    ) {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "cancel",
+        signal: 'cancel',
         previousStatus,
         error: `Cannot cancel task with status: ${previousStatus}`,
       };
@@ -84,28 +86,28 @@ export class ControlSignalHandler {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "cancel",
+        signal: 'cancel',
         previousStatus,
-        error: "Failed to cancel task execution",
+        error: 'Failed to cancel task execution',
       };
     }
 
-    this.deps.registry.updateStatus(request.taskId, "cancelled");
+    this.deps.registry.updateStatus(request.taskId, 'cancelled');
 
-    await this.updateWorkspace(request.taskId, "cancelled", {
-      type: "task_cancelled",
-      message: request.reason || "Task cancelled by control signal",
+    await this.updateWorkspace(request.taskId, 'cancelled', {
+      type: 'task_cancelled',
+      message: request.reason || 'Task cancelled by control signal',
       data: { requested_by: request.requestedBy },
     });
 
-    await this.notifyMatrix(request.taskId, "Task cancelled", "status_change");
+    await this.notifyMatrix(request.taskId, 'Task cancelled', 'status_change');
 
     return {
       success: true,
       taskId: request.taskId,
-      signal: "cancel",
+      signal: 'cancel',
       previousStatus,
-      newStatus: "cancelled",
+      newStatus: 'cancelled',
     };
   }
 
@@ -113,11 +115,11 @@ export class ControlSignalHandler {
     request: ControlSignalRequest,
     previousStatus: string
   ): Promise<ControlSignalResult> {
-    if (previousStatus !== "running") {
+    if (previousStatus !== 'running') {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "pause",
+        signal: 'pause',
         previousStatus,
         error: `Cannot pause task with status: ${previousStatus}`,
       };
@@ -129,28 +131,28 @@ export class ControlSignalHandler {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "pause",
+        signal: 'pause',
         previousStatus,
-        error: "Failed to pause task execution",
+        error: 'Failed to pause task execution',
       };
     }
 
-    this.deps.registry.updateStatus(request.taskId, "paused");
+    this.deps.registry.updateStatus(request.taskId, 'paused');
 
-    await this.updateWorkspace(request.taskId, "paused", {
-      type: "task_paused",
-      message: request.reason || "Task paused by control signal",
+    await this.updateWorkspace(request.taskId, 'paused', {
+      type: 'task_paused',
+      message: request.reason || 'Task paused by control signal',
       data: { requested_by: request.requestedBy },
     });
 
-    await this.notifyMatrix(request.taskId, "Task paused", "status_change");
+    await this.notifyMatrix(request.taskId, 'Task paused', 'status_change');
 
     return {
       success: true,
       taskId: request.taskId,
-      signal: "pause",
+      signal: 'pause',
       previousStatus,
-      newStatus: "paused",
+      newStatus: 'paused',
     };
   }
 
@@ -158,11 +160,11 @@ export class ControlSignalHandler {
     request: ControlSignalRequest,
     previousStatus: string
   ): Promise<ControlSignalResult> {
-    if (previousStatus !== "paused") {
+    if (previousStatus !== 'paused') {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "resume",
+        signal: 'resume',
         previousStatus,
         error: `Cannot resume task with status: ${previousStatus}`,
       };
@@ -174,34 +176,34 @@ export class ControlSignalHandler {
       return {
         success: false,
         taskId: request.taskId,
-        signal: "resume",
+        signal: 'resume',
         previousStatus,
-        error: "Failed to resume task execution",
+        error: 'Failed to resume task execution',
       };
     }
 
-    this.deps.registry.updateStatus(request.taskId, "running");
+    this.deps.registry.updateStatus(request.taskId, 'running');
 
-    await this.updateWorkspace(request.taskId, "running", {
-      type: "task_resumed",
-      message: request.reason || "Task resumed by control signal",
+    await this.updateWorkspace(request.taskId, 'running', {
+      type: 'task_resumed',
+      message: request.reason || 'Task resumed by control signal',
       data: { requested_by: request.requestedBy },
     });
 
-    await this.notifyMatrix(request.taskId, "Task resumed", "status_change");
+    await this.notifyMatrix(request.taskId, 'Task resumed', 'status_change');
 
     return {
       success: true,
       taskId: request.taskId,
-      signal: "resume",
+      signal: 'resume',
       previousStatus,
-      newStatus: "running",
+      newStatus: 'running',
     };
   }
 
   private async updateWorkspace(
     taskId: string,
-    status: "paused" | "cancelled" | "running",
+    status: 'paused' | 'cancelled' | 'running',
     event: { type: string; message: string; data?: Record<string, unknown> }
   ): Promise<void> {
     const task = this.deps.registry.getTask(taskId);
@@ -229,7 +231,7 @@ export class ControlSignalHandler {
   private async notifyMatrix(
     taskId: string,
     message: string,
-    eventType: "progress" | "error" | "status_change"
+    eventType: 'progress' | 'error' | 'status_change'
   ): Promise<void> {
     if (!this.deps.matrix) {
       return;
@@ -241,12 +243,7 @@ export class ControlSignalHandler {
     }
 
     try {
-      await this.deps.matrix.sendTaskUpdate(
-        task.matrixRoom.roomId,
-        taskId,
-        message,
-        eventType
-      );
+      await this.deps.matrix.sendTaskUpdate(task.matrixRoom.roomId, taskId, message, eventType);
     } catch (error) {
       console.error(`Failed to send Matrix notification for task ${taskId}:`, error);
     }

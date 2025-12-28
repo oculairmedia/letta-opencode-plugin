@@ -1,4 +1,4 @@
-import { LettaClient as SDKLettaClient } from "@letta-ai/letta-client";
+import { LettaClient as SDKLettaClient } from '@letta-ai/letta-client';
 import type {
   LettaConfig,
   LettaAgent,
@@ -8,7 +8,7 @@ import type {
   UpdateMemoryBlockRequest,
   AttachMemoryBlockRequest,
   SendMessageRequest,
-} from "./types/letta.js";
+} from './types/letta.js';
 
 export class LettaClient {
   private client: SDKLettaClient;
@@ -44,17 +44,14 @@ export class LettaClient {
     return messages as unknown as LettaMessage[];
   }
 
-  async sendMessage(
-    agentId: string,
-    request: SendMessageRequest
-  ): Promise<LettaMessage> {
+  async sendMessage(agentId: string, request: SendMessageRequest): Promise<LettaMessage> {
     const response = await this.client.agents.messages.create(
       agentId,
       {
         messages: [
           {
             role: request.role,
-            content: [{ type: "text", text: request.content }],
+            content: [{ type: 'text', text: request.content }],
           },
         ],
       },
@@ -105,10 +102,7 @@ export class LettaClient {
     return block as unknown as LettaMemoryBlock;
   }
 
-  async attachMemoryBlock(
-    agentId: string,
-    request: AttachMemoryBlockRequest
-  ): Promise<void> {
+  async attachMemoryBlock(agentId: string, request: AttachMemoryBlockRequest): Promise<void> {
     await this.client.agents.blocks.attach(agentId, request.block_id, {
       timeoutInSeconds: this.timeout / 1000,
       maxRetries: this.maxRetries,
@@ -123,14 +117,10 @@ export class LettaClient {
   }
 
   async listMemoryBlocks(agentId: string): Promise<LettaMemoryBlock[]> {
-    const blocks = await this.client.agents.blocks.list(
-      agentId,
-      undefined,
-      {
-        timeoutInSeconds: this.timeout / 1000,
-        maxRetries: this.maxRetries,
-      }
-    );
+    const blocks = await this.client.agents.blocks.list(agentId, undefined, {
+      timeoutInSeconds: this.timeout / 1000,
+      maxRetries: this.maxRetries,
+    });
     return blocks as unknown as LettaMemoryBlock[];
   }
 }
