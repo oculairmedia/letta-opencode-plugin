@@ -691,6 +691,438 @@ describe("executeTask", () => {
     });
   });
 
+  describe("Workspace block creation failure", () => {
+    it("should return error when workspace block creation fails", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockRejectedValue(
+        new Error("Failed to create block")
+      );
+
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: false,
+      };
+
+      const result = await executeTask(params, mockDeps);
+
+      expect(result.status).toBe("failed");
+      expect(result.error).toContain("Failed to create workspace block");
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("Matrix room integration", () => {
+    let mockMatrixManager: jest.Mocked<MatrixRoomManager>;
+
+    beforeEach(() => {
+      mockMatrixManager = {
+        createTaskRoom: jest.fn(),
+        sendTaskUpdate: jest.fn(),
+        closeTaskRoom: jest.fn(),
+      } as unknown as jest.Mocked<MatrixRoomManager>;
+
+      mockLetta = {
+        sendMessage: jest.fn(),
+      } as unknown as jest.Mocked<LettaClient>;
+
+      mockDeps.matrix = mockMatrixManager;
+      mockDeps.letta = mockLetta;
+    });
+
+    it("should create Matrix room when Matrix is enabled", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {
+          version: "1.0.0",
+          task_id: "task-123",
+          agent_id: "agent-123",
+          status: "pending",
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          events: [],
+          artifacts: [],
+        },
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockMatrixManager.createTaskRoom.mockResolvedValue({
+        roomId: "!room:matrix.org",
+        taskId: "task-123",
+        participants: [],
+        createdAt: Date.now(),
+      });
+      mockMatrixManager.closeTaskRoom.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+        observers: ["@user:matrix.org"],
+      };
+
+      await executeTask(params, mockDeps);
+
+      expect(mockMatrixManager.createTaskRoom).toHaveBeenCalledWith(
+        expect.objectContaining({
+          taskId: expect.any(String),
+          taskDescription: "Test task",
+          callingAgentId: "agent-123",
+        })
+      );
+      expect(mockRegistry.updateMatrixRoom).toHaveBeenCalled();
+    });
+
+    it("should handle Matrix room creation failure gracefully", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockMatrixManager.createTaskRoom.mockRejectedValue(
+        new Error("Matrix error")
+      );
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      const result = await executeTask(params, mockDeps);
+
+      expect(result.status).toBe("completed");
+      expect(mockRegistry.updateMatrixRoom).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it("should send updates to Matrix room during execution", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockMatrixManager.createTaskRoom.mockResolvedValue({
+        roomId: "!room:matrix.org",
+        taskId: "task-123",
+        participants: [],
+        createdAt: Date.now(),
+      });
+      mockMatrixManager.sendTaskUpdate.mockResolvedValue(undefined);
+      mockMatrixManager.closeTaskRoom.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+
+      // Capture the event callback and call it
+      mockExecution.execute.mockImplementation(async (req, onEvent) => {
+        if (onEvent) {
+          onEvent({
+            type: "output",
+            timestamp: Date.now(),
+            data: "Processing...",
+            sessionId: "session-123",
+          });
+        }
+        return {
+          taskId: "task-123",
+          status: "success",
+          exitCode: 0,
+          output: "Done",
+          startedAt: Date.now(),
+          completedAt: Date.now() + 1000,
+          durationMs: 1000,
+        };
+      });
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      await executeTask(params, mockDeps);
+
+      // Allow async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(mockMatrixManager.sendTaskUpdate).toHaveBeenCalled();
+    });
+
+    it("should close Matrix room on task completion", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockMatrixManager.createTaskRoom.mockResolvedValue({
+        roomId: "!room:matrix.org",
+        taskId: "task-123",
+        participants: [],
+        createdAt: Date.now(),
+      });
+      mockMatrixManager.closeTaskRoom.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      await executeTask(params, mockDeps);
+
+      expect(mockMatrixManager.closeTaskRoom).toHaveBeenCalledWith(
+        "!room:matrix.org",
+        expect.any(String),
+        expect.any(String)
+      );
+      expect(mockRegistry.clearMatrixRoom).toHaveBeenCalled();
+    });
+
+    it("should handle Matrix room close failure gracefully", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockMatrixManager.createTaskRoom.mockResolvedValue({
+        roomId: "!room:matrix.org",
+        taskId: "task-123",
+        participants: [],
+        createdAt: Date.now(),
+      });
+      mockMatrixManager.closeTaskRoom.mockRejectedValue(new Error("Close failed"));
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      const result = await executeTask(params, mockDeps);
+
+      expect(result.status).toBe("completed");
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("Letta notification", () => {
+    beforeEach(() => {
+      mockLetta = {
+        sendMessage: jest.fn(),
+      } as unknown as jest.Mocked<LettaClient>;
+      mockDeps.letta = mockLetta;
+    });
+
+    it("should send completion notification to agent", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      await executeTask(params, mockDeps);
+
+      expect(mockLetta.sendMessage).toHaveBeenCalledWith(
+        "agent-123",
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("system_alert"),
+        })
+      );
+    });
+
+    it("should handle notification failure gracefully", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockRejectedValue(new Error("Notification failed"));
+      mockExecution.execute.mockResolvedValue({
+        taskId: "task-123",
+        status: "success",
+        exitCode: 0,
+        output: "Done",
+        startedAt: Date.now(),
+        completedAt: Date.now() + 1000,
+        durationMs: 1000,
+      });
+
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      const result = await executeTask(params, mockDeps);
+
+      expect(result.status).toBe("completed");
+
+      consoleSpy.mockRestore();
+    });
+
+    it("should send failure notification when task fails", async () => {
+      mockRegistry.canAcceptTask.mockReturnValue(true);
+      mockRegistry.register.mockImplementation((taskId) => ({
+        taskId,
+        agentId: "agent-123",
+        status: "queued",
+        createdAt: Date.now(),
+      }));
+      mockWorkspace.createWorkspaceBlock.mockResolvedValue({
+        blockId: "block-123",
+        workspace: {} as any,
+      });
+      mockWorkspace.updateWorkspace.mockResolvedValue({} as any);
+      mockWorkspace.detachWorkspaceBlock.mockResolvedValue(undefined);
+      mockLetta.sendMessage.mockResolvedValue({} as any);
+      mockExecution.execute.mockRejectedValue(new Error("Execution error"));
+
+      const params: ExecuteTaskParams = {
+        agent_id: "agent-123",
+        task_description: "Test task",
+        sync: true,
+      };
+
+      await executeTask(params, mockDeps);
+
+      expect(mockLetta.sendMessage).toHaveBeenCalledWith(
+        "agent-123",
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining("Failed"),
+        })
+      );
+    });
+  });
+
   describe("Output truncation", () => {
     it("should truncate long output to 5000 characters", async () => {
       const longOutput = "x".repeat(10000);

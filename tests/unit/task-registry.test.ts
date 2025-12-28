@@ -1,14 +1,19 @@
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, jest, afterEach } from "@jest/globals";
 import { TaskRegistry } from "../../src/task-registry.js";
 
 describe("TaskRegistry", () => {
   let registry: TaskRegistry;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     registry = new TaskRegistry({
       maxConcurrentTasks: 3,
       idempotencyWindowMs: 60000,
     });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe("register", () => {
@@ -250,6 +255,83 @@ describe("TaskRegistry", () => {
 
       const task = registry.findTaskByMatrixRoom("!unknown:matrix.org");
       expect(task).toBeUndefined();
+    });
+  });
+
+  describe("Cleanup", () => {
+    it("should cleanup expired completed tasks", () => {
+      // Register and complete a task
+      registry.register("task-1", "agent-1", "idem-1");
+      registry.updateStatus("task-1", "completed");
+
+      // Get the task to verify it exists
+      expect(registry.getTask("task-1")).toBeDefined();
+
+      // Fast forward past the idempotency window (60 seconds) plus cleanup interval (1 hour)
+      jest.advanceTimersByTime(3600000 + 60001);
+
+      // After cleanup, task should be removed
+      expect(registry.getTask("task-1")).toBeUndefined();
+    });
+
+    it("should not cleanup running tasks", () => {
+      registry.register("task-1", "agent-1");
+      registry.updateStatus("task-1", "running");
+
+      // Fast forward past the cleanup interval
+      jest.advanceTimersByTime(3600000 + 60001);
+
+      // Running task should still exist
+      expect(registry.getTask("task-1")).toBeDefined();
+    });
+
+    it("should cleanup idempotency keys along with tasks", () => {
+      registry.register("task-1", "agent-1", "idem-key-1");
+      registry.updateStatus("task-1", "completed");
+
+      // Fast forward to trigger cleanup
+      jest.advanceTimersByTime(3600000 + 60001);
+
+      // Register new task with same idempotency key - should create new task
+      const newTask = registry.register("task-2", "agent-1", "idem-key-1");
+      expect(newTask.taskId).toBe("task-2");
+    });
+
+    it("should not cleanup tasks within idempotency window", () => {
+      // Use a registry with a longer idempotency window
+      const longWindowRegistry = new TaskRegistry({
+        maxConcurrentTasks: 3,
+        idempotencyWindowMs: 7200000, // 2 hours
+      });
+      
+      longWindowRegistry.register("task-1", "agent-1");
+      longWindowRegistry.updateStatus("task-1", "completed");
+
+      // Fast forward cleanup interval (1 hour) - task completed recently, within 2hr window
+      jest.advanceTimersByTime(3600000);
+
+      // Task should still exist (within idempotency window of 2 hours)
+      expect(longWindowRegistry.getTask("task-1")).toBeDefined();
+    });
+
+    it("should cleanup failed tasks after expiry", () => {
+      registry.register("task-1", "agent-1");
+      registry.updateStatus("task-1", "failed");
+
+      // Fast forward past expiry
+      jest.advanceTimersByTime(3600000 + 60001);
+
+      expect(registry.getTask("task-1")).toBeUndefined();
+    });
+
+    it("should cleanup timeout tasks after expiry", () => {
+      registry.register("task-1", "agent-1");
+      registry.updateStatus("task-1", "timeout");
+
+      // Fast forward past expiry
+      jest.advanceTimersByTime(3600000 + 60001);
+
+      expect(registry.getTask("task-1")).toBeUndefined();
     });
   });
 });
