@@ -51,7 +51,7 @@ services:
     container_name: opencode-server
     pull_policy: always
     ports:
-      - "3100:3100"
+      - "3111:3100"
     restart: unless-stopped
     environment:
       - MATRIX_API_URL=http://letta-opencode-plugin:3500/matrix
@@ -59,7 +59,7 @@ services:
       - opencode-workspaces:/workspace
       - /root/.config/opencode:/root/.config/opencode:ro
       - /root/.local/share/opencode:/root/.local/share/opencode
-      - /root/.cache/opencode:/root/.cache/opencode:ro
+      - /root/.cache/opencode:/root/.cache/opencode
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/config"]
       interval: 30s
