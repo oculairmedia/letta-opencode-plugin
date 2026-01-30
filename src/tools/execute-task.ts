@@ -98,7 +98,7 @@ export async function executeTask(
   }
 
   try {
-    const MCP_RESPONSE_TIMEOUT = 25000;
+    const MCP_RESPONSE_TIMEOUT = 60000;
     const timeoutPromise = new Promise<Record<string, unknown>>((resolve) => {
       setTimeout(() => {
         resolve({
@@ -188,7 +188,20 @@ async function executeTaskAsync(
       timeout: params.timeout_ms,
     };
 
+    const significantEventTypes = new Set([
+      'complete',
+      'abort',
+      'error',
+      'session.error',
+      'session.idle',
+      'output',
+    ]);
+
     const result = await deps.execution.execute(executionRequest, (event) => {
+      if (!significantEventTypes.has(event.type)) {
+        return;
+      }
+
       const workspaceEvent = {
         timestamp: event.timestamp,
         type: 'task_progress' as const,

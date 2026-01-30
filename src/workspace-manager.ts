@@ -85,53 +85,70 @@ export class WorkspaceManager {
   async updateWorkspace(
     agentId: string,
     blockId: string,
-    update: UpdateWorkspaceRequest
+    update: UpdateWorkspaceRequest,
+    retries = 3
   ): Promise<WorkspaceBlock> {
-    const blocks = await this.letta.listMemoryBlocks(agentId);
-    const currentBlock = blocks.find((b) => b.id === blockId);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const blocks = await this.letta.listMemoryBlocks(agentId);
+        const currentBlock = blocks.find((b) => b.id === blockId);
 
-    if (!currentBlock) {
-      throw new Error(`Workspace block ${blockId} not found`);
+        if (!currentBlock) {
+          throw new Error(`Workspace block ${blockId} not found`);
+        }
+
+        const workspace: WorkspaceBlock = JSON.parse(currentBlock.value);
+
+        if (update.status) {
+          workspace.status = update.status;
+        }
+
+        if (update.events) {
+          workspace.events.push(...update.events);
+        }
+
+        if (update.artifacts) {
+          workspace.artifacts.push(...update.artifacts);
+        }
+
+        if (update.metadata) {
+          workspace.metadata = { ...workspace.metadata, ...update.metadata };
+        }
+
+        workspace.updated_at = Date.now();
+
+        const prunedWorkspace = this.pruneEvents(workspace);
+
+        const serialized = JSON.stringify(prunedWorkspace);
+        const blockLimit = parseInt(process.env.WORKSPACE_BLOCK_LIMIT || '50000', 10);
+
+        if (serialized.length > blockLimit) {
+          console.warn(
+            `[workspace-manager] Workspace block ${blockId} exceeds limit: ${serialized.length} > ${blockLimit} chars`
+          );
+        }
+
+        await this.letta.updateMemoryBlock(agentId, blockId, {
+          value: serialized,
+        });
+
+        return prunedWorkspace;
+      } catch (error) {
+        const is409 =
+          error instanceof Error &&
+          (error.message.includes('409') || error.message.includes('CONFLICT'));
+        if (is409 && attempt < retries) {
+          const delay = 100 * Math.pow(2, attempt) + Math.random() * 50;
+          console.warn(
+            `[workspace-manager] 409 conflict on block ${blockId}, retry ${attempt + 1}/${retries} in ${Math.round(delay)}ms`
+          );
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw error;
+      }
     }
-
-    const workspace: WorkspaceBlock = JSON.parse(currentBlock.value);
-
-    if (update.status) {
-      workspace.status = update.status;
-    }
-
-    if (update.events) {
-      workspace.events.push(...update.events);
-    }
-
-    if (update.artifacts) {
-      workspace.artifacts.push(...update.artifacts);
-    }
-
-    if (update.metadata) {
-      workspace.metadata = { ...workspace.metadata, ...update.metadata };
-    }
-
-    workspace.updated_at = Date.now();
-
-    // Prune events if exceeding limit
-    const prunedWorkspace = this.pruneEvents(workspace);
-
-    // Validate size before updating
-    const serialized = JSON.stringify(prunedWorkspace);
-    const blockLimit = parseInt(process.env.WORKSPACE_BLOCK_LIMIT || '50000', 10);
-
-    if (serialized.length > blockLimit) {
-      console.warn(
-        `[workspace-manager] Workspace block ${blockId} exceeds limit: ${serialized.length} > ${blockLimit} chars`
-      );
-    }
-
-    await this.letta.updateMemoryBlock(agentId, blockId, {
-      value: serialized,
-    });
-
-    return prunedWorkspace;
+    throw new Error(`Failed to update workspace block ${blockId} after ${retries} retries`);
   }
 
   async appendEvent(agentId: string, blockId: string, event: WorkspaceEvent): Promise<void> {
