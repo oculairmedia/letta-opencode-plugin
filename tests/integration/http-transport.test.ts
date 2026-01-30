@@ -1,8 +1,5 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { runHTTP, HTTPServerHandle } from '../../src/http-transport.js';
 
 describe('HTTP Transport Simple Test', () => {
@@ -11,17 +8,18 @@ describe('HTTP Transport Simple Test', () => {
   const serverPort = 13457;
 
   beforeAll(async () => {
-    server = new Server(
-      { name: 'test-server', version: '1.0.0' },
-      { capabilities: { tools: {} } }
-    );
+    server = new Server({ name: 'test-server', version: '1.0.0' }, { capabilities: { tools: {} } });
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [{ name: 'test', description: 'test', inputSchema: { type: 'object', properties: {} } }],
+      tools: [
+        { name: 'test', description: 'test', inputSchema: { type: 'object', properties: {} } },
+      ],
     }));
 
     server.setRequestHandler(CallToolRequestSchema, async (req) => ({
-      content: [{ type: 'text', text: JSON.stringify({ result: 'ok', args: req.params.arguments }) }],
+      content: [
+        { type: 'text', text: JSON.stringify({ result: 'ok', args: req.params.arguments }) },
+      ],
     }));
 
     process.env.MCP_PORT = String(serverPort);
@@ -51,9 +49,9 @@ describe('HTTP Transport Simple Test', () => {
       const response = await fetch(`http://127.0.0.1:${serverPort}/mcp`, {
         method: 'POST',
         headers: {
-          'Origin': 'http://localhost',
+          Origin: 'http://localhost',
           'Content-Type': 'application/json',
-          'Accept': 'application/json, text/event-stream',
+          Accept: 'application/json, text/event-stream',
         },
         body: JSON.stringify({
           jsonrpc: '2.0',

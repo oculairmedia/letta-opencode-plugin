@@ -1,5 +1,5 @@
-import { OpenCodeClientManager } from "../../src/opencode-client-manager.js";
-import type { OpenCodeEvent } from "../../src/types/opencode.js";
+import { OpenCodeClientManager } from '../../src/opencode-client-manager.js';
+import type { OpenCodeEvent } from '../../src/types/opencode.js';
 
 // Create mock client that will be returned by createOpencodeClient
 const mockClient = {
@@ -19,14 +19,14 @@ const mockClient = {
 };
 
 // Mock the @opencode-ai/sdk module
-jest.mock("@opencode-ai/sdk", () => ({
+jest.mock('@opencode-ai/sdk', () => ({
   createOpencodeClient: jest.fn(() => mockClient),
 }));
 
 // Mock fetch globally
 global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 
-describe("OpenCodeClientManager", () => {
+describe('OpenCodeClientManager', () => {
   let manager: OpenCodeClientManager;
 
   beforeEach(() => {
@@ -34,28 +34,28 @@ describe("OpenCodeClientManager", () => {
 
     manager = new OpenCodeClientManager({
       enabled: true,
-      serverUrl: "http://localhost:3100",
+      serverUrl: 'http://localhost:3100',
       healthCheckIntervalMs: 5000,
       maxRetries: 3,
       retryDelayMs: 1000,
     });
   });
 
-  describe("constructor", () => {
-    it("should initialize with config", () => {
+  describe('constructor', () => {
+    it('should initialize with config', () => {
       expect(manager).toBeDefined();
     });
 
-    it("should create OpenCode client with server URL", () => {
-      const { createOpencodeClient } = require("@opencode-ai/sdk");
+    it('should create OpenCode client with server URL', () => {
+      const { createOpencodeClient } = require('@opencode-ai/sdk');
       expect(createOpencodeClient).toHaveBeenCalledWith({
-        baseUrl: "http://localhost:3100",
+        baseUrl: 'http://localhost:3100',
       });
     });
   });
 
-  describe("healthCheck", () => {
-    it("should return true when server is healthy", async () => {
+  describe('healthCheck', () => {
+    it('should return true when server is healthy', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
         ok: true,
       } as Response);
@@ -64,14 +64,14 @@ describe("OpenCodeClientManager", () => {
 
       expect(result).toBe(true);
       expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:3100/config",
+        'http://localhost:3100/config',
         expect.objectContaining({
-          method: "GET",
+          method: 'GET',
         })
       );
     });
 
-    it("should return false when server is unhealthy", async () => {
+    it('should return false when server is unhealthy', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
         ok: false,
       } as Response);
@@ -81,9 +81,9 @@ describe("OpenCodeClientManager", () => {
       expect(result).toBe(false);
     });
 
-    it("should return false on network error", async () => {
+    it('should return false on network error', async () => {
       (global.fetch as jest.MockedFunction<typeof fetch>).mockRejectedValue(
-        new Error("Network error")
+        new Error('Network error')
       );
 
       const result = await manager.healthCheck();
@@ -91,7 +91,7 @@ describe("OpenCodeClientManager", () => {
       expect(result).toBe(false);
     });
 
-    it("should timeout after 5 seconds", async () => {
+    it('should timeout after 5 seconds', async () => {
       await manager.healthCheck();
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -103,17 +103,17 @@ describe("OpenCodeClientManager", () => {
     });
   });
 
-  describe("createSession", () => {
-    it("should extract session ID from SDK response.data.id format", async () => {
+  describe('createSession', () => {
+    it('should extract session ID from SDK response.data.id format', async () => {
       // Guard against SDK response format regression
       // The SDK returns {data: {id: "ses_xxx", ...}, request: {}, response: {}}
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "ses_test123",
-          version: "0.15.0",
-          projectID: "global",
-          directory: "/workspace",
-          title: "Task: task-123",
+          id: 'ses_test123',
+          version: '0.15.0',
+          projectID: 'global',
+          directory: '/workspace',
+          title: 'Task: task-123',
           time: {
             created: Date.now(),
             updated: Date.now(),
@@ -125,151 +125,136 @@ describe("OpenCodeClientManager", () => {
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      const session = await manager.createSession(
-        "task-123",
-        "agent-456",
-        "Test prompt"
-      );
+      const session = await manager.createSession('task-123', 'agent-456', 'Test prompt');
 
-      expect(session.sessionId).toBe("ses_test123");
-      expect(session.taskId).toBe("task-123");
-      expect(session.agentId).toBe("agent-456");
-      expect(session.status).toBe("active");
+      expect(session.sessionId).toBe('ses_test123');
+      expect(session.taskId).toBe('task-123');
+      expect(session.agentId).toBe('agent-456');
+      expect(session.status).toBe('active');
     });
 
-    it("should handle SDK error response", async () => {
+    it('should handle SDK error response', async () => {
       // OpenCode 1.0 SDK returns { error: {...} } on failure
       mockClient.session.create.mockResolvedValue({
         error: {
-          message: "Invalid request",
+          message: 'Invalid request',
           code: 400,
         },
       });
 
-      await expect(
-        manager.createSession("task-error", "agent-456", "Test prompt")
-      ).rejects.toThrow("Session creation failed:");
+      await expect(manager.createSession('task-error', 'agent-456', 'Test prompt')).rejects.toThrow(
+        'Session creation failed:'
+      );
     });
 
-    it("should throw error when no session ID is returned", async () => {
+    it('should throw error when no session ID is returned', async () => {
       // Guard against malformed SDK responses
       mockClient.session.create.mockResolvedValue({
         data: {
-          version: "0.15.0",
+          version: '0.15.0',
           // Missing 'id' field
         },
       });
 
-      await expect(
-        manager.createSession("task-123", "agent-456", "Test prompt")
-      ).rejects.toThrow("Session creation failed: no ID returned");
+      await expect(manager.createSession('task-123', 'agent-456', 'Test prompt')).rejects.toThrow(
+        'Session creation failed: no ID returned'
+      );
     });
 
-    it("should create session with task details", async () => {
+    it('should create session with task details', async () => {
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
-          version: "1.0.0",
-          projectID: "global",
-          directory: "/workspace",
-          title: "Task: task-123 (agent: agent-456)",
+          id: 'session-123',
+          version: '1.0.0',
+          projectID: 'global',
+          directory: '/workspace',
+          title: 'Task: task-123 (agent: agent-456)',
           time: { created: Date.now(), updated: Date.now() },
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      const session = await manager.createSession(
-        "task-123",
-        "agent-456",
-        "Test prompt"
-      );
+      const session = await manager.createSession('task-123', 'agent-456', 'Test prompt');
 
       expect(session).toEqual({
-        sessionId: "session-123",
-        taskId: "task-123",
-        agentId: "agent-456",
+        sessionId: 'session-123',
+        taskId: 'task-123',
+        agentId: 'agent-456',
         startedAt: expect.any(Number),
-        status: "active",
+        status: 'active',
       });
 
       // OpenCode 1.0 SDK removed metadata from session.create
       expect(mockClient.session.create).toHaveBeenCalledWith({
         body: {
-          title: "Task: task-123 (agent: agent-456)",
+          title: 'Task: task-123 (agent: agent-456)',
         },
       });
     });
 
-    it("should use custom working directory when provided (no longer in API)", async () => {
+    it('should use custom working directory when provided (no longer in API)', async () => {
       // OpenCode 1.0 SDK removed metadata from session.create
       // Working directory is now handled via prompt context
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.createSession(
-        "task-123",
-        "agent-456",
-        "Test prompt",
-        "/custom/path"
-      );
+      await manager.createSession('task-123', 'agent-456', 'Test prompt', '/custom/path');
 
       // Custom working dir is no longer passed in metadata
       expect(mockClient.session.create).toHaveBeenCalledWith({
         body: {
-          title: "Task: task-123 (agent: agent-456)",
+          title: 'Task: task-123 (agent: agent-456)',
         },
       });
     });
 
-    it("should store session in active sessions", async () => {
+    it('should store session in active sessions', async () => {
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.createSession("task-123", "agent-456", "Test prompt");
+      await manager.createSession('task-123', 'agent-456', 'Test prompt');
 
-      const activeSession = manager.getActiveSession("task-123");
+      const activeSession = manager.getActiveSession('task-123');
       expect(activeSession).toBeDefined();
-      expect(activeSession?.sessionId).toBe("session-123");
+      expect(activeSession?.sessionId).toBe('session-123');
     });
 
-    it("should throw error on session creation failure", async () => {
-      mockClient.session.create.mockRejectedValue(
-        new Error("Server error")
+    it('should throw error on session creation failure', async () => {
+      mockClient.session.create.mockRejectedValue(new Error('Server error'));
+
+      await expect(manager.createSession('task-123', 'agent-456', 'Test prompt')).rejects.toThrow(
+        'Failed to create session: Server error'
       );
-
-      await expect(
-        manager.createSession("task-123", "agent-456", "Test prompt")
-      ).rejects.toThrow("Failed to create session: Server error");
     });
 
-    it("should handle non-Error exceptions", async () => {
-      mockClient.session.create.mockRejectedValue("String error");
+    it('should handle non-Error exceptions', async () => {
+      mockClient.session.create.mockRejectedValue('String error');
 
-      await expect(
-        manager.createSession("task-123", "agent-456", "Test prompt")
-      ).rejects.toThrow("Failed to create session: String error");
+      await expect(manager.createSession('task-123', 'agent-456', 'Test prompt')).rejects.toThrow(
+        'Failed to create session: String error'
+      );
     });
   });
 
-  describe("sendPrompt", () => {
-    it("should send enhanced prompt to session", async () => {
+  describe('sendPrompt', () => {
+    it('should send enhanced prompt to session', async () => {
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.sendPrompt("session-123", "task-123", "agent-456", "Test prompt");
+      await manager.sendPrompt('session-123', 'task-123', 'agent-456', 'Test prompt');
 
       expect(mockClient.session.prompt).toHaveBeenCalledWith({
-        path: { id: "session-123" },
+        path: { id: 'session-123' },
         body: {
           model: {
             providerID: expect.any(String),
@@ -277,8 +262,8 @@ describe("OpenCodeClientManager", () => {
           },
           parts: [
             {
-              type: "text",
-              text: expect.stringContaining("Test prompt"),
+              type: 'text',
+              text: expect.stringContaining('Test prompt'),
             },
           ],
         },
@@ -287,29 +272,29 @@ describe("OpenCodeClientManager", () => {
       const callArgs = mockClient.session.prompt.mock.calls[0][0] as {
         body: { parts: Array<{ text: string }> };
       };
-      expect(callArgs.body.parts[0].text).toContain("IMPORTANT: When you complete this task");
-      expect(callArgs.body.parts[0].text).toContain("Task ID: task-123");
-      expect(callArgs.body.parts[0].text).toContain("Calling Agent ID: agent-456");
+      expect(callArgs.body.parts[0].text).toContain('IMPORTANT: When you complete this task');
+      expect(callArgs.body.parts[0].text).toContain('Task ID: task-123');
+      expect(callArgs.body.parts[0].text).toContain('Calling Agent ID: agent-456');
     });
 
-    it("should throw error when prompt fails", async () => {
-      mockClient.session.prompt.mockRejectedValue(new Error("Prompt failed"));
+    it('should throw error when prompt fails', async () => {
+      mockClient.session.prompt.mockRejectedValue(new Error('Prompt failed'));
 
       await expect(
-        manager.sendPrompt("session-123", "task-123", "agent-456", "Test prompt")
-      ).rejects.toThrow("Failed to send prompt: Prompt failed");
+        manager.sendPrompt('session-123', 'task-123', 'agent-456', 'Test prompt')
+      ).rejects.toThrow('Failed to send prompt: Prompt failed');
     });
   });
 
-  describe("subscribeToEvents", () => {
-    it("should subscribe to session events", async () => {
+  describe('subscribeToEvents', () => {
+    it('should subscribe to session events', async () => {
       const mockStream = {
         stream: (async function* () {
           yield {
-            type: "output",
+            type: 'output',
             properties: {
-              sessionId: "session-123",
-              data: "Test output",
+              sessionId: 'session-123',
+              data: 'Test output',
             },
           };
         })(),
@@ -320,7 +305,7 @@ describe("OpenCodeClientManager", () => {
       const onEvent = jest.fn();
       const onError = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent, onError);
+      await manager.subscribeToEvents('session-123', onEvent, onError);
 
       // Wait for async iteration to process
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -328,28 +313,28 @@ describe("OpenCodeClientManager", () => {
       expect(mockClient.event.subscribe).toHaveBeenCalled();
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "output",
-          sessionId: "session-123",
+          type: 'output',
+          sessionId: 'session-123',
           timestamp: expect.any(Number),
         })
       );
     });
 
-    it("should filter events by session ID", async () => {
+    it('should filter events by session ID', async () => {
       const mockStream = {
         stream: (async function* () {
           yield {
-            type: "output",
+            type: 'output',
             properties: {
-              sessionId: "session-123",
-              data: "Test output",
+              sessionId: 'session-123',
+              data: 'Test output',
             },
           };
           yield {
-            type: "output",
+            type: 'output',
             properties: {
-              sessionId: "session-456",
-              data: "Other session output",
+              sessionId: 'session-456',
+              data: 'Other session output',
             },
           };
         })(),
@@ -359,26 +344,26 @@ describe("OpenCodeClientManager", () => {
 
       const onEvent = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent);
+      await manager.subscribeToEvents('session-123', onEvent);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onEvent).toHaveBeenCalledTimes(1);
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionId: "session-123",
+          sessionId: 'session-123',
         })
       );
     });
 
-    it("should handle AsyncGenerator stream directly (OpenCode 1.0 format)", async () => {
+    it('should handle AsyncGenerator stream directly (OpenCode 1.0 format)', async () => {
       // OpenCode 1.0 SDK returns { stream: AsyncGenerator } directly
       const mockStream = {
         stream: (async function* () {
           yield {
-            type: "finish",
+            type: 'finish',
             properties: {
-              sessionId: "session-abc",
+              sessionId: 'session-abc',
             },
           };
         })(),
@@ -388,26 +373,26 @@ describe("OpenCodeClientManager", () => {
 
       const onEvent = jest.fn();
 
-      await manager.subscribeToEvents("session-abc", onEvent);
+      await manager.subscribeToEvents('session-abc', onEvent);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "complete",
-          sessionId: "session-abc",
+          type: 'complete',
+          sessionId: 'session-abc',
         })
       );
     });
 
-    it("should normalize finish variants to complete events", async () => {
+    it('should normalize finish variants to complete events', async () => {
       const mockStream = {
         stream: (async function* () {
           yield {
-            type: "finish:part",
+            type: 'finish:part',
             properties: {
-              sessionId: "session-123",
-              part: "final",
+              sessionId: 'session-123',
+              part: 'final',
             },
           };
         })(),
@@ -417,26 +402,26 @@ describe("OpenCodeClientManager", () => {
 
       const onEvent = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent);
+      await manager.subscribeToEvents('session-123', onEvent);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "complete",
-          sessionId: "session-123",
+          type: 'complete',
+          sessionId: 'session-123',
         })
       );
     });
 
-    it("should convert status events with completed state to complete", async () => {
+    it('should convert status events with completed state to complete', async () => {
       const mockStream = {
         stream: (async function* () {
           yield {
-            type: "status",
+            type: 'status',
             properties: {
-              sessionId: "session-123",
-              status: "Completed",
+              sessionId: 'session-123',
+              status: 'Completed',
             },
           };
         })(),
@@ -446,22 +431,22 @@ describe("OpenCodeClientManager", () => {
 
       const onEvent = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent);
+      await manager.subscribeToEvents('session-123', onEvent);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onEvent).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "complete",
-          sessionId: "session-123",
+          type: 'complete',
+          sessionId: 'session-123',
         })
       );
     });
 
-    it("should call onError when event stream fails", async () => {
+    it('should call onError when event stream fails', async () => {
       const mockStream = {
         stream: (async function* () {
-          throw new Error("Stream error");
+          throw new Error('Stream error');
         })(),
       };
 
@@ -470,34 +455,34 @@ describe("OpenCodeClientManager", () => {
       const onEvent = jest.fn();
       const onError = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent, onError);
+      await manager.subscribeToEvents('session-123', onEvent, onError);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
 
-    it("should call onError when subscription fails", async () => {
-      mockClient.event.subscribe.mockRejectedValue(new Error("Subscribe error"));
+    it('should call onError when subscription fails', async () => {
+      mockClient.event.subscribe.mockRejectedValue(new Error('Subscribe error'));
 
       const onEvent = jest.fn();
       const onError = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent, onError);
+      await manager.subscribeToEvents('session-123', onEvent, onError);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onError).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: "Subscribe error",
+          message: 'Subscribe error',
         })
       );
     });
 
-    it("should handle non-Error exceptions in event stream", async () => {
+    it('should handle non-Error exceptions in event stream', async () => {
       const mockStream = {
         stream: (async function* () {
-          throw "String error";
+          throw 'String error';
         })(),
       };
 
@@ -506,123 +491,121 @@ describe("OpenCodeClientManager", () => {
       const onEvent = jest.fn();
       const onError = jest.fn();
 
-      await manager.subscribeToEvents("session-123", onEvent, onError);
+      await manager.subscribeToEvents('session-123', onEvent, onError);
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(onError).toHaveBeenCalled();
     });
 
-    it("should not fail if onError is not provided", async () => {
-      mockClient.event.subscribe.mockRejectedValue(new Error("Subscribe error"));
+    it('should not fail if onError is not provided', async () => {
+      mockClient.event.subscribe.mockRejectedValue(new Error('Subscribe error'));
 
       const onEvent = jest.fn();
 
-      await expect(
-        manager.subscribeToEvents("session-123", onEvent)
-      ).resolves.not.toThrow();
+      await expect(manager.subscribeToEvents('session-123', onEvent)).resolves.not.toThrow();
     });
   });
 
-  describe("getSessionInfo", () => {
-    it("should return session info", async () => {
+  describe('getSessionInfo', () => {
+    it('should return session info', async () => {
       mockClient.session.get.mockResolvedValue({
-        id: "session-123",
-        status: "active",
+        id: 'session-123',
+        status: 'active',
         error: undefined,
       });
 
-      const info = await manager.getSessionInfo("session-123");
+      const info = await manager.getSessionInfo('session-123');
 
       expect(info).toEqual({
-        sessionId: "session-123",
-        status: "active",
+        sessionId: 'session-123',
+        status: 'active',
         files: [],
-        output: "",
+        output: '',
         error: undefined,
       });
 
       expect(mockClient.session.get).toHaveBeenCalledWith({
-        path: { id: "session-123" },
+        path: { id: 'session-123' },
       });
     });
 
-    it("should throw on SDK error response", async () => {
+    it('should throw on SDK error response', async () => {
       // OpenCode 1.0 SDK returns { error: {...} } on failure
       mockClient.session.get.mockResolvedValue({
-        error: { message: "Task failed" },
+        error: { message: 'Task failed' },
       });
 
-      await expect(manager.getSessionInfo("session-123")).rejects.toThrow(
-        "Failed to get session info:"
+      await expect(manager.getSessionInfo('session-123')).rejects.toThrow(
+        'Failed to get session info:'
       );
     });
 
-    it("should default to active status", async () => {
+    it('should default to active status', async () => {
       mockClient.session.get.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
-      const info = await manager.getSessionInfo("session-123");
+      const info = await manager.getSessionInfo('session-123');
 
-      expect(info.status).toBe("active");
+      expect(info.status).toBe('active');
     });
 
-    it("should throw error on failure", async () => {
-      mockClient.session.get.mockRejectedValue(new Error("Not found"));
+    it('should throw error on failure', async () => {
+      mockClient.session.get.mockRejectedValue(new Error('Not found'));
 
-      await expect(manager.getSessionInfo("session-123")).rejects.toThrow(
-        "Failed to get session info: Not found"
+      await expect(manager.getSessionInfo('session-123')).rejects.toThrow(
+        'Failed to get session info: Not found'
       );
     });
 
-    it("should handle non-Error exceptions", async () => {
-      mockClient.session.get.mockRejectedValue("String error");
+    it('should handle non-Error exceptions', async () => {
+      mockClient.session.get.mockRejectedValue('String error');
 
-      await expect(manager.getSessionInfo("session-123")).rejects.toThrow(
-        "Failed to get session info: String error"
+      await expect(manager.getSessionInfo('session-123')).rejects.toThrow(
+        'Failed to get session info: String error'
       );
     });
   });
 
-  describe("abortSession", () => {
-    it("should abort session", async () => {
+  describe('abortSession', () => {
+    it('should abort session', async () => {
       mockClient.session.abort.mockResolvedValue({});
 
-      await manager.abortSession("session-123");
+      await manager.abortSession('session-123');
 
       expect(mockClient.session.abort).toHaveBeenCalledWith({
-        path: { id: "session-123" },
+        path: { id: 'session-123' },
       });
     });
 
-    it("should throw error on failure", async () => {
-      mockClient.session.abort.mockRejectedValue(new Error("Abort failed"));
+    it('should throw error on failure', async () => {
+      mockClient.session.abort.mockRejectedValue(new Error('Abort failed'));
 
-      await expect(manager.abortSession("session-123")).rejects.toThrow(
-        "Failed to abort session: Abort failed"
+      await expect(manager.abortSession('session-123')).rejects.toThrow(
+        'Failed to abort session: Abort failed'
       );
     });
 
-    it("should handle non-Error exceptions", async () => {
-      mockClient.session.abort.mockRejectedValue("String error");
+    it('should handle non-Error exceptions', async () => {
+      mockClient.session.abort.mockRejectedValue('String error');
 
-      await expect(manager.abortSession("session-123")).rejects.toThrow(
-        "Failed to abort session: String error"
+      await expect(manager.abortSession('session-123')).rejects.toThrow(
+        'Failed to abort session: String error'
       );
     });
   });
 
-  describe("sendMessage", () => {
-    it("should send message to session", async () => {
+  describe('sendMessage', () => {
+    it('should send message to session', async () => {
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.sendMessage("session-123", "Test message");
+      await manager.sendMessage('session-123', 'Test message');
 
       expect(mockClient.session.prompt).toHaveBeenCalledWith({
-        path: { id: "session-123" },
+        path: { id: 'session-123' },
         body: {
           model: {
             providerID: expect.any(String),
@@ -630,214 +613,204 @@ describe("OpenCodeClientManager", () => {
           },
           parts: [
             {
-              type: "text",
-              text: "Test message",
+              type: 'text',
+              text: 'Test message',
             },
           ],
         },
       });
     });
 
-    it("should throw error on failure", async () => {
-      mockClient.session.prompt.mockRejectedValue(
-        new Error("Internal Server Error")
-      );
+    it('should throw error on failure', async () => {
+      mockClient.session.prompt.mockRejectedValue(new Error('Internal Server Error'));
 
-      await expect(
-        manager.sendMessage("session-123", "Test message")
-      ).rejects.toThrow("Failed to send message: Internal Server Error");
+      await expect(manager.sendMessage('session-123', 'Test message')).rejects.toThrow(
+        'Failed to send message: Internal Server Error'
+      );
     });
 
-    it("should handle network errors", async () => {
-      mockClient.session.prompt.mockRejectedValue(new Error("Network error"));
+    it('should handle network errors', async () => {
+      mockClient.session.prompt.mockRejectedValue(new Error('Network error'));
 
-      await expect(
-        manager.sendMessage("session-123", "Test message")
-      ).rejects.toThrow("Network error");
+      await expect(manager.sendMessage('session-123', 'Test message')).rejects.toThrow(
+        'Network error'
+      );
     });
   });
 
-  describe("listFiles", () => {
-    it("should list files in root directory", async () => {
+  describe('listFiles', () => {
+    it('should list files in root directory', async () => {
       // OpenCode 1.0 SDK returns { data, error } format
       mockClient.file.status.mockResolvedValue({
-        data: [
-          { path: "/file1.txt" },
-          { path: "/file2.txt" },
-        ],
+        data: [{ path: '/file1.txt' }, { path: '/file2.txt' }],
       });
 
-      const files = await manager.listFiles("session-123");
+      const files = await manager.listFiles('session-123');
 
-      expect(files).toEqual(["/file1.txt", "/file2.txt"]);
+      expect(files).toEqual(['/file1.txt', '/file2.txt']);
       expect(mockClient.file.status).toHaveBeenCalled();
     });
 
-    it("should list files (path filter no longer supported in API)", async () => {
+    it('should list files (path filter no longer supported in API)', async () => {
       // OpenCode 1.0 SDK file.status() no longer takes path query
       mockClient.file.status.mockResolvedValue({
-        data: [
-          { path: "/src/file1.ts" },
-          { path: "/src/file2.ts" },
-        ],
+        data: [{ path: '/src/file1.ts' }, { path: '/src/file2.ts' }],
       });
 
-      const files = await manager.listFiles("session-123", "/src");
+      const files = await manager.listFiles('session-123', '/src');
 
-      expect(files).toEqual(["/src/file1.ts", "/src/file2.ts"]);
+      expect(files).toEqual(['/src/file1.ts', '/src/file2.ts']);
     });
 
-    it("should return empty array when no files", async () => {
+    it('should return empty array when no files', async () => {
       mockClient.file.status.mockResolvedValue({
         data: [],
       });
 
-      const files = await manager.listFiles("session-123");
+      const files = await manager.listFiles('session-123');
 
       expect(files).toEqual([]);
     });
 
-    it("should throw error on SDK error response", async () => {
+    it('should throw error on SDK error response', async () => {
       mockClient.file.status.mockResolvedValue({
-        error: { message: "List failed" },
+        error: { message: 'List failed' },
       });
 
-      await expect(manager.listFiles("session-123")).rejects.toThrow(
-        "Failed to list files:"
-      );
+      await expect(manager.listFiles('session-123')).rejects.toThrow('Failed to list files:');
     });
 
-    it("should handle rejected promise", async () => {
-      mockClient.file.status.mockRejectedValue(new Error("Network error"));
+    it('should handle rejected promise', async () => {
+      mockClient.file.status.mockRejectedValue(new Error('Network error'));
 
-      await expect(manager.listFiles("session-123")).rejects.toThrow(
-        "Failed to list files: Network error"
+      await expect(manager.listFiles('session-123')).rejects.toThrow(
+        'Failed to list files: Network error'
       );
     });
   });
 
-  describe("readFile", () => {
-    it("should read file content", async () => {
+  describe('readFile', () => {
+    it('should read file content', async () => {
       // OpenCode 1.0 SDK returns { data, error } format
       mockClient.file.read.mockResolvedValue({
         data: {
-          content: "File content here",
+          content: 'File content here',
         },
       });
 
-      const content = await manager.readFile("session-123", "/test.txt");
+      const content = await manager.readFile('session-123', '/test.txt');
 
-      expect(content).toBe("File content here");
+      expect(content).toBe('File content here');
       expect(mockClient.file.read).toHaveBeenCalledWith({
-        query: { path: "/test.txt" },
+        query: { path: '/test.txt' },
       });
     });
 
-    it("should handle empty files", async () => {
+    it('should handle empty files', async () => {
       mockClient.file.read.mockResolvedValue({
         data: {
-          content: "",
+          content: '',
         },
       });
 
-      const content = await manager.readFile("session-123", "/empty.txt");
+      const content = await manager.readFile('session-123', '/empty.txt');
 
-      expect(content).toBe("");
+      expect(content).toBe('');
     });
 
-    it("should throw error on SDK error response", async () => {
+    it('should throw error on SDK error response', async () => {
       mockClient.file.read.mockResolvedValue({
-        error: { message: "Read failed" },
+        error: { message: 'Read failed' },
       });
 
-      await expect(
-        manager.readFile("session-123", "/test.txt")
-      ).rejects.toThrow("Failed to read file:");
+      await expect(manager.readFile('session-123', '/test.txt')).rejects.toThrow(
+        'Failed to read file:'
+      );
     });
 
-    it("should handle rejected promise", async () => {
-      mockClient.file.read.mockRejectedValue(new Error("Network error"));
+    it('should handle rejected promise', async () => {
+      mockClient.file.read.mockRejectedValue(new Error('Network error'));
 
-      await expect(
-        manager.readFile("session-123", "/test.txt")
-      ).rejects.toThrow("Failed to read file: Network error");
+      await expect(manager.readFile('session-123', '/test.txt')).rejects.toThrow(
+        'Failed to read file: Network error'
+      );
     });
   });
 
-  describe("getActiveSession", () => {
-    it("should return active session", async () => {
+  describe('getActiveSession', () => {
+    it('should return active session', async () => {
       // OpenCode 1.0 SDK returns { data, error } format
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.createSession("task-123", "agent-456", "Test prompt");
+      await manager.createSession('task-123', 'agent-456', 'Test prompt');
 
-      const session = manager.getActiveSession("task-123");
+      const session = manager.getActiveSession('task-123');
 
       expect(session).toBeDefined();
-      expect(session?.sessionId).toBe("session-123");
-      expect(session?.taskId).toBe("task-123");
+      expect(session?.sessionId).toBe('session-123');
+      expect(session?.taskId).toBe('task-123');
     });
 
-    it("should return undefined for non-existent session", () => {
-      const session = manager.getActiveSession("nonexistent-task");
+    it('should return undefined for non-existent session', () => {
+      const session = manager.getActiveSession('nonexistent-task');
 
       expect(session).toBeUndefined();
     });
   });
 
-  describe("removeSession", () => {
-    it("should remove session from active sessions", async () => {
+  describe('removeSession', () => {
+    it('should remove session from active sessions', async () => {
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.createSession("task-123", "agent-456", "Test prompt");
+      await manager.createSession('task-123', 'agent-456', 'Test prompt');
 
-      expect(manager.getActiveSession("task-123")).toBeDefined();
+      expect(manager.getActiveSession('task-123')).toBeDefined();
 
-      manager.removeSession("task-123");
+      manager.removeSession('task-123');
 
-      expect(manager.getActiveSession("task-123")).toBeUndefined();
+      expect(manager.getActiveSession('task-123')).toBeUndefined();
     });
 
-    it("should not throw error for non-existent session", () => {
-      expect(() => manager.removeSession("nonexistent-task")).not.toThrow();
+    it('should not throw error for non-existent session', () => {
+      expect(() => manager.removeSession('nonexistent-task')).not.toThrow();
     });
   });
 
-  describe("cleanup", () => {
-    it("should clear all active sessions", async () => {
+  describe('cleanup', () => {
+    it('should clear all active sessions', async () => {
       mockClient.session.create.mockResolvedValue({
         data: {
-          id: "session-123",
+          id: 'session-123',
         },
       });
 
       mockClient.session.prompt.mockResolvedValue({});
 
-      await manager.createSession("task-1", "agent-1", "Test 1");
-      await manager.createSession("task-2", "agent-2", "Test 2");
+      await manager.createSession('task-1', 'agent-1', 'Test 1');
+      await manager.createSession('task-2', 'agent-2', 'Test 2');
 
-      expect(manager.getActiveSession("task-1")).toBeDefined();
-      expect(manager.getActiveSession("task-2")).toBeDefined();
+      expect(manager.getActiveSession('task-1')).toBeDefined();
+      expect(manager.getActiveSession('task-2')).toBeDefined();
 
       manager.cleanup();
 
-      expect(manager.getActiveSession("task-1")).toBeUndefined();
-      expect(manager.getActiveSession("task-2")).toBeUndefined();
+      expect(manager.getActiveSession('task-1')).toBeUndefined();
+      expect(manager.getActiveSession('task-2')).toBeUndefined();
     });
 
-    it("should not throw error when no active sessions", () => {
+    it('should not throw error when no active sessions', () => {
       expect(() => manager.cleanup()).not.toThrow();
     });
   });

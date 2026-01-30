@@ -1,9 +1,13 @@
-import { sendTaskMessage, type SendTaskMessageParams, type TaskMessageDependencies } from "../../src/tools/task-message-tools.js";
-import type { TaskRegistry } from "../../src/task-registry.js";
-import type { WorkspaceManager } from "../../src/workspace-manager.js";
-import type { MatrixRoomManager } from "../../src/matrix-room-manager.js";
+import {
+  sendTaskMessage,
+  type SendTaskMessageParams,
+  type TaskMessageDependencies,
+} from '../../src/tools/task-message-tools.js';
+import type { TaskRegistry } from '../../src/task-registry.js';
+import type { WorkspaceManager } from '../../src/workspace-manager.js';
+import type { MatrixRoomManager } from '../../src/matrix-room-manager.js';
 
-describe("task-message-tools", () => {
+describe('task-message-tools', () => {
   let mockDeps: jest.Mocked<TaskMessageDependencies>;
   let mockRegistry: jest.Mocked<TaskRegistry>;
   let mockWorkspace: jest.Mocked<WorkspaceManager>;
@@ -29,27 +33,27 @@ describe("task-message-tools", () => {
     };
   });
 
-  describe("sendTaskMessage", () => {
-    describe("Task validation", () => {
-      it("should throw error when task not found", async () => {
+  describe('sendTaskMessage', () => {
+    describe('Task validation', () => {
+      it('should throw error when task not found', async () => {
         mockRegistry.getTask.mockReturnValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "nonexistent-task",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'nonexistent-task',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await expect(sendTaskMessage(params, mockDeps)).rejects.toThrow(
-          "Task nonexistent-task not found"
+          'Task nonexistent-task not found'
         );
       });
 
-      it("should throw error when task has no workspace block", async () => {
+      it('should throw error when task has no workspace block', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
           workspaceBlockId: undefined,
         };
@@ -57,54 +61,54 @@ describe("task-message-tools", () => {
         mockRegistry.getTask.mockReturnValue(mockTask as any);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await expect(sendTaskMessage(params, mockDeps)).rejects.toThrow(
-          "Task task-123 does not have a workspace block"
+          'Task task-123 does not have a workspace block'
         );
       });
 
-      it("should throw error when task is not running or paused", async () => {
+      it('should throw error when task is not running or paused', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "completed",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'completed',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await expect(sendTaskMessage(params, mockDeps)).rejects.toThrow(
-          "Cannot send message to task with status: completed"
+          'Cannot send message to task with status: completed'
         );
       });
 
-      it("should allow messages for running tasks", async () => {
+      it('should allow messages for running tasks', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
@@ -112,22 +116,22 @@ describe("task-message-tools", () => {
         expect(mockWorkspace.appendEvent).toHaveBeenCalled();
       });
 
-      it("should allow messages for paused tasks", async () => {
+      it('should allow messages for paused tasks', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "paused",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'paused',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
@@ -136,56 +140,56 @@ describe("task-message-tools", () => {
       });
     });
 
-    describe("Message recording", () => {
-      it("should append message event to workspace", async () => {
+    describe('Message recording', () => {
+      it('should append message event to workspace', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Progress update",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Progress update',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         expect(mockWorkspace.appendEvent).toHaveBeenCalledWith(
-          "agent-456",
-          "block-123",
+          'agent-456',
+          'block-123',
           expect.objectContaining({
-            type: "task_progress",
-            message: "Progress update",
+            type: 'task_progress',
+            message: 'Progress update',
             data: expect.objectContaining({
-              message_type: "update",
+              message_type: 'update',
             }),
           })
         );
       });
 
-      it("should generate unique message ID", async () => {
+      it('should generate unique message ID', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         const result = await sendTaskMessage(params, mockDeps);
@@ -193,47 +197,47 @@ describe("task-message-tools", () => {
         expect(result.message_id).toMatch(/^msg-\d+$/);
       });
 
-      it("should use default message type of update", async () => {
+      it('should use default message type of update', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.data?.message_type).toBe("update");
-        expect(callArgs?.[2]?.type).toBe("task_progress");
+        expect(callArgs?.[2]?.data?.message_type).toBe('update');
+        expect(callArgs?.[2]?.type).toBe('task_progress');
       });
 
-      it("should include metadata in event data", async () => {
+      it('should include metadata in event data', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
           metadata: { step: 3, total: 10 },
         };
 
@@ -247,238 +251,238 @@ describe("task-message-tools", () => {
       });
     });
 
-    describe("Message type mapping", () => {
+    describe('Message type mapping', () => {
       it("should map 'update' to task_progress event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Progress update",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Progress update',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_progress");
+        expect(callArgs?.[2]?.type).toBe('task_progress');
       });
 
       it("should map 'feedback' to task_feedback event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Good work",
-          message_type: "feedback",
+          task_id: 'task-123',
+          message: 'Good work',
+          message_type: 'feedback',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_feedback");
+        expect(callArgs?.[2]?.type).toBe('task_feedback');
       });
 
       it("should map 'context_change' to task_runtime_update event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Context has changed",
-          message_type: "context_change",
+          task_id: 'task-123',
+          message: 'Context has changed',
+          message_type: 'context_change',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_runtime_update");
+        expect(callArgs?.[2]?.type).toBe('task_runtime_update');
       });
 
       it("should map 'requirement_change' to task_runtime_update event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Requirements updated",
-          message_type: "requirement_change",
+          task_id: 'task-123',
+          message: 'Requirements updated',
+          message_type: 'requirement_change',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_runtime_update");
+        expect(callArgs?.[2]?.type).toBe('task_runtime_update');
       });
 
       it("should map 'priority_change' to task_runtime_update event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Priority changed to high",
-          message_type: "priority_change",
+          task_id: 'task-123',
+          message: 'Priority changed to high',
+          message_type: 'priority_change',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_runtime_update");
+        expect(callArgs?.[2]?.type).toBe('task_runtime_update');
       });
 
       it("should map 'clarification' to task_feedback event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Need clarification on approach",
-          message_type: "clarification",
+          task_id: 'task-123',
+          message: 'Need clarification on approach',
+          message_type: 'clarification',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_feedback");
+        expect(callArgs?.[2]?.type).toBe('task_feedback');
       });
 
       it("should map 'correction' to task_feedback event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Please revise",
-          message_type: "correction",
+          task_id: 'task-123',
+          message: 'Please revise',
+          message_type: 'correction',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_feedback");
+        expect(callArgs?.[2]?.type).toBe('task_feedback');
       });
 
       it("should map 'guidance' to task_feedback event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Try this approach",
-          message_type: "guidance",
+          task_id: 'task-123',
+          message: 'Try this approach',
+          message_type: 'guidance',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_feedback");
+        expect(callArgs?.[2]?.type).toBe('task_feedback');
       });
 
       it("should map 'approval' to task_feedback event", async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Approved!",
-          message_type: "approval",
+          task_id: 'task-123',
+          message: 'Approved!',
+          message_type: 'approval',
         };
 
         await sendTaskMessage(params, mockDeps);
 
         const callArgs = mockWorkspace.appendEvent.mock.calls[0];
-        expect(callArgs?.[2]?.type).toBe("task_feedback");
+        expect(callArgs?.[2]?.type).toBe('task_feedback');
       });
     });
 
-    describe("Matrix integration", () => {
-      it("should send Matrix update when Matrix is enabled and room exists", async () => {
+    describe('Matrix integration', () => {
+      it('should send Matrix update when Matrix is enabled and room exists', async () => {
         const mockMatrixManager = {
           sendTaskUpdate: jest.fn().mockResolvedValue(undefined),
         } as unknown as jest.Mocked<MatrixRoomManager>;
 
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
           matrixRoom: {
-            roomId: "!room123:matrix.org",
+            roomId: '!room123:matrix.org',
           },
         };
 
@@ -491,30 +495,30 @@ describe("task-message-tools", () => {
         };
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Task update",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Task update',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, depsWithMatrix);
 
         expect(mockMatrixManager.sendTaskUpdate).toHaveBeenCalledWith(
-          "!room123:matrix.org",
-          "task-123",
-          "[update] Task update",
-          "progress"
+          '!room123:matrix.org',
+          'task-123',
+          '[update] Task update',
+          'progress'
         );
       });
 
-      it("should not send Matrix update when Matrix is disabled", async () => {
+      it('should not send Matrix update when Matrix is disabled', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
           matrixRoom: {
-            roomId: "!room123:matrix.org",
+            roomId: '!room123:matrix.org',
           },
         };
 
@@ -522,9 +526,9 @@ describe("task-message-tools", () => {
         mockWorkspace.appendEvent.mockResolvedValue(undefined);
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, mockDeps);
@@ -532,17 +536,17 @@ describe("task-message-tools", () => {
         // No Matrix call should be made
       });
 
-      it("should not send Matrix update when task has no Matrix room", async () => {
+      it('should not send Matrix update when task has no Matrix room', async () => {
         const mockMatrixManager = {
           sendTaskUpdate: jest.fn().mockResolvedValue(undefined),
         } as unknown as jest.Mocked<MatrixRoomManager>;
 
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
           matrixRoom: undefined,
         };
 
@@ -555,9 +559,9 @@ describe("task-message-tools", () => {
         };
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         await sendTaskMessage(params, depsWithMatrix);
@@ -565,19 +569,19 @@ describe("task-message-tools", () => {
         expect(mockMatrixManager.sendTaskUpdate).not.toHaveBeenCalled();
       });
 
-      it("should map all message types to progress Matrix event", async () => {
+      it('should map all message types to progress Matrix event', async () => {
         const mockMatrixManager = {
           sendTaskUpdate: jest.fn().mockResolvedValue(undefined),
         } as unknown as jest.Mocked<MatrixRoomManager>;
 
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
           matrixRoom: {
-            roomId: "!room123:matrix.org",
+            roomId: '!room123:matrix.org',
           },
         };
 
@@ -590,9 +594,9 @@ describe("task-message-tools", () => {
         };
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "feedback",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'feedback',
         };
 
         await sendTaskMessage(params, depsWithMatrix);
@@ -601,19 +605,19 @@ describe("task-message-tools", () => {
           expect.any(String),
           expect.any(String),
           expect.any(String),
-          "progress"
+          'progress'
         );
       });
     });
 
-    describe("Response format", () => {
-      it("should return message ID and timestamp", async () => {
+    describe('Response format', () => {
+      it('should return message ID and timestamp', async () => {
         const mockTask = {
-          taskId: "task-123",
-          agentId: "agent-456",
-          status: "running",
+          taskId: 'task-123',
+          agentId: 'agent-456',
+          status: 'running',
           createdAt: Date.now(),
-          workspaceBlockId: "block-123",
+          workspaceBlockId: 'block-123',
         };
 
         mockRegistry.getTask.mockReturnValue(mockTask as any);
@@ -622,9 +626,9 @@ describe("task-message-tools", () => {
         const beforeTime = Date.now();
 
         const params: SendTaskMessageParams = {
-          task_id: "task-123",
-          message: "Test message",
-          message_type: "update",
+          task_id: 'task-123',
+          message: 'Test message',
+          message_type: 'update',
         };
 
         const result = await sendTaskMessage(params, mockDeps);
@@ -632,7 +636,7 @@ describe("task-message-tools", () => {
         const afterTime = Date.now();
 
         expect(result).toEqual({
-          task_id: "task-123",
+          task_id: 'task-123',
           message_id: expect.stringMatching(/^msg-\d+$/),
           timestamp: expect.any(Number),
         });

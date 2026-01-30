@@ -102,14 +102,11 @@ async function runTest() {
 
     // Send progress to Matrix if enabled
     if (matrixRoom && roomInfo) {
-      matrixRoom.sendTaskUpdate(
-        roomInfo.roomId,
-        testId,
-        `Event: ${event.type}`,
-        'progress'
-      ).catch((err) => {
-        console.error(`${RED}  ✗ Failed to send Matrix update: ${err.message}${NC}`);
-      });
+      matrixRoom
+        .sendTaskUpdate(roomInfo.roomId, testId, `Event: ${event.type}`, 'progress')
+        .catch((err) => {
+          console.error(`${RED}  ✗ Failed to send Matrix update: ${err.message}${NC}`);
+        });
     }
   });
 
@@ -117,15 +114,21 @@ async function runTest() {
   console.log(`  Status: ${result.status}`);
   console.log(`  Duration: ${result.durationMs}ms`);
   console.log(`  Events received: ${eventCount}`);
-  console.log(`  Complete event: ${completeEventReceived ? GREEN + '✓ YES' + NC : RED + '✗ NO' + NC}`);
+  console.log(
+    `  Complete event: ${completeEventReceived ? GREEN + '✓ YES' + NC : RED + '✗ NO' + NC}`
+  );
   console.log('');
 
   // Send completion message to Matrix
   if (matrixRoom && roomInfo) {
     console.log(`${BLUE}Step 4: Sending completion message to Matrix${NC}`);
 
-    const finalStatus = result.status === 'success' ? 'completed' :
-                       result.status === 'timeout' ? 'timeout' : 'failed';
+    const finalStatus =
+      result.status === 'success'
+        ? 'completed'
+        : result.status === 'timeout'
+          ? 'timeout'
+          : 'failed';
     const emoji = finalStatus === 'completed' ? '✅' : finalStatus === 'timeout' ? '⏱️' : '❌';
 
     let summary = `${emoji} Task ${finalStatus}\n\n`;
@@ -157,7 +160,7 @@ async function runTest() {
   ];
 
   let passed = 0;
-  checks.forEach(check => {
+  checks.forEach((check) => {
     const status = check.pass ? `${GREEN}✓${NC}` : `${RED}✗${NC}`;
     console.log(`${status} ${check.name}`);
     if (check.pass) passed++;
