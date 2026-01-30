@@ -311,7 +311,7 @@ async function executeTaskAsync(
       });
 
       await deps.letta.sendMessage(params.agent_id, {
-        role: 'user',
+        role: 'system',
         content: systemAlert,
       });
       console.error(
@@ -385,7 +385,7 @@ The task execution encountered an error and could not be completed.`;
       });
 
       await deps.letta.sendMessage(params.agent_id, {
-        role: 'user',
+        role: 'system',
         content: systemAlert,
       });
       console.error(
