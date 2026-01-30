@@ -94,6 +94,34 @@ export class ExecutionManager {
           case 'output':
             output += String(event.data);
             break;
+          case 'message.part.updated': {
+            const part = (event.data as Record<string, unknown>)?.part as Record<string, unknown>;
+            if (part?.type === 'text' && typeof part?.text === 'string') {
+              output = part.text;
+            }
+            break;
+          }
+          case 'message.updated': {
+            const info = (event.data as Record<string, unknown>)?.info as Record<string, unknown>;
+            if (info?.role === 'assistant') {
+              const time = info?.time as Record<string, unknown>;
+              if (time?.completed) {
+                console.error(
+                  `[execution-manager] Assistant message completed for task ${request.taskId}`
+                );
+              }
+            }
+            break;
+          }
+          case 'session.error': {
+            const errData = (event.data as Record<string, unknown>)?.error as Record<
+              string,
+              unknown
+            >;
+            const errMsg = (errData?.data as Record<string, unknown>)?.message ?? errData?.name;
+            error = typeof errMsg === 'string' ? errMsg : String(event.data);
+            break;
+          }
           case 'error':
             error = String(event.data);
             break;
@@ -108,9 +136,7 @@ export class ExecutionManager {
             completed = true;
             break;
           default:
-            console.error(
-              `[execution-manager] Unhandled event type for task ${request.taskId}: ${event.type}`
-            );
+            break;
         }
       };
 

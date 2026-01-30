@@ -30,6 +30,9 @@ function mapEventType(
   const originalLower = rawType.toLowerCase();
 
   const isCompletionKeyword = (lower: string): boolean => {
+    if (lower === 'session.idle') {
+      return true;
+    }
     if (lower === 'finish' || lower === 'finish-step' || lower === 'done' || lower === 'complete') {
       return true;
     }
@@ -251,15 +254,25 @@ Calling Agent ID: ${agentId}`;
             );
 
             // Filter events for this session
-            if (event.properties?.sessionId === sessionId) {
+            // OpenCode v1.x uses 'sessionID' (capital ID) in various locations:
+            // - properties.sessionID (e.g., session.idle, session.error)
+            // - properties.info.sessionID (e.g., message.updated, session.updated)
+            // - properties.part.sessionID (e.g., message.part.updated)
+            const props = event.properties as Record<string, unknown> | undefined;
+            const eventSessionId =
+              (props?.sessionID as string) ??
+              (props?.sessionId as string) ??
+              ((props?.info as Record<string, unknown>)?.sessionID as string) ??
+              ((props?.info as Record<string, unknown>)?.sessionId as string) ??
+              ((props?.part as Record<string, unknown>)?.sessionID as string) ??
+              ((props?.part as Record<string, unknown>)?.sessionId as string);
+
+            if (eventSessionId === sessionId) {
               // Map server event types to our internal event types
               console.error(
                 `[OpenCodeClient] Raw event received: type=${event.type}, sessionId=${sessionId}`
               );
-              const { type: eventType, mappedFrom } = mapEventType(
-                event.type,
-                event.properties as Record<string, unknown> | undefined
-              );
+              const { type: eventType, mappedFrom } = mapEventType(event.type, props);
               if (mappedFrom) {
                 console.error(
                   `[OpenCodeClient] Mapping ${mappedFrom} -> ${eventType} for sessionId=${sessionId}`
