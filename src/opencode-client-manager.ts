@@ -406,6 +406,49 @@ Calling Agent ID: ${agentId}`;
     return this.activeSessions.get(taskId);
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    try {
+      console.log(`[OpenCodeClient] Deleting session ${sessionId} from server`);
+      const response = await this.client.session.delete({
+        path: { id: sessionId },
+      });
+      if (response.error) {
+        console.warn(
+          `[OpenCodeClient] Failed to delete session ${sessionId}: ${JSON.stringify(response.error)}`
+        );
+      } else {
+        console.log(`[OpenCodeClient] Session ${sessionId} deleted successfully`);
+      }
+    } catch (error) {
+      // Non-fatal: log and continue — session may already be gone
+      console.warn(
+        `[OpenCodeClient] Error deleting session ${sessionId}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  async listSessions(): Promise<Array<{ id: string; title?: string }>> {
+    try {
+      const response = await this.client.session.list();
+      if (response.error) {
+        console.warn(`[OpenCodeClient] Failed to list sessions: ${JSON.stringify(response.error)}`);
+        return [];
+      }
+      const sessions = (response.data as Array<Record<string, unknown>>) || [];
+      return sessions.map((s) => ({
+        id: String(s.id || ''),
+        title: s.title ? String(s.title) : undefined,
+      }));
+    } catch (error) {
+      console.warn(
+        `[OpenCodeClient] Error listing sessions:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      return [];
+    }
+  }
+
   removeSession(taskId: string): void {
     this.activeSessions.delete(taskId);
   }

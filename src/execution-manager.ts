@@ -13,6 +13,7 @@ export class ExecutionManager {
   private activeContainers: Map<string, ContainerInfo> = new Map();
   private openCodeClient?: OpenCodeClientManager;
   private eventHandlers: Map<string, (event: OpenCodeEvent) => void> = new Map();
+  private sessionCleanupInterval?: NodeJS.Timeout;
 
   constructor(config: ExecutionConfig) {
     this.config = config;
@@ -30,8 +31,45 @@ export class ExecutionManager {
         retryDelayMs: 1000,
       });
       console.log(`[ExecutionManager] OpenCodeClientManager created`);
+      this.startSessionCleanup();
     } else {
       console.log(`[ExecutionManager] OpenCode server disabled, using Docker mode`);
+    }
+  }
+
+  private startSessionCleanup(): void {
+    const CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+    this.sessionCleanupInterval = setInterval(() => {
+      this.cleanupStaleSessions().catch((err) => {
+        console.error(`[ExecutionManager] Session cleanup failed:`, err);
+      });
+    }, CLEANUP_INTERVAL_MS);
+    console.log(`[ExecutionManager] Session cleanup scheduled every 30 minutes`);
+  }
+
+  private async cleanupStaleSessions(): Promise<void> {
+    if (!this.openCodeClient) return;
+
+    const sessions = await this.openCodeClient.listSessions();
+    if (sessions.length === 0) return;
+
+    const activeSessionIds = new Set(
+      Array.from(this.activeContainers.values())
+        .map((c) => c.sessionId)
+        .filter(Boolean)
+    );
+
+    let deleted = 0;
+    for (const session of sessions) {
+      if (!session.id || activeSessionIds.has(session.id)) continue;
+      await this.openCodeClient.deleteSession(session.id);
+      deleted++;
+    }
+
+    if (deleted > 0) {
+      console.log(
+        `[ExecutionManager] Cleaned up ${deleted} stale sessions (${sessions.length} total, ${activeSessionIds.size} active)`
+      );
     }
   }
 
@@ -219,9 +257,16 @@ export class ExecutionManager {
 
       return result;
     } finally {
+      const sessionId = this.activeContainers.get(request.taskId)?.sessionId;
       this.eventHandlers.delete(request.taskId);
       this.openCodeClient.removeSession(request.taskId);
       this.activeContainers.delete(request.taskId);
+
+      if (sessionId) {
+        this.openCodeClient.deleteSession(sessionId).catch((err) => {
+          console.warn(`[execution-manager] Failed to delete session ${sessionId}:`, err);
+        });
+      }
     }
   }
 
@@ -467,6 +512,9 @@ export class ExecutionManager {
   }
 
   cleanup(): void {
+    if (this.sessionCleanupInterval) {
+      clearInterval(this.sessionCleanupInterval);
+    }
     this.openCodeClient?.cleanup();
     this.eventHandlers.clear();
     this.activeContainers.clear();
