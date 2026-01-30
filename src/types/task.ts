@@ -10,6 +10,10 @@ export interface TaskRegistryEntry {
   completedAt?: number;
   workspaceBlockId?: string;
   matrixRoom?: RoomInfo;
+  output?: string;
+  error?: string;
+  durationMs?: number;
+  exitCode?: number;
 }
 
 export interface TaskQueueConfig {

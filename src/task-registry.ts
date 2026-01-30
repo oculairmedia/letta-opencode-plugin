@@ -61,6 +61,10 @@ export class TaskRegistry {
     status: TaskRegistryEntry['status'],
     options?: {
       workspaceBlockId?: string;
+      output?: string;
+      error?: string;
+      durationMs?: number;
+      exitCode?: number;
     }
   ): void {
     const task = this.tasks.get(taskId);
@@ -77,6 +81,18 @@ export class TaskRegistry {
       }
       if (options?.workspaceBlockId) {
         task.workspaceBlockId = options.workspaceBlockId;
+      }
+      if (options?.output !== undefined) {
+        task.output = options.output;
+      }
+      if (options?.error !== undefined) {
+        task.error = options.error;
+      }
+      if (options?.durationMs !== undefined) {
+        task.durationMs = options.durationMs;
+      }
+      if (options?.exitCode !== undefined) {
+        task.exitCode = options.exitCode;
       }
     }
   }

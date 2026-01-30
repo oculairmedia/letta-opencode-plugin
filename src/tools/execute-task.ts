@@ -233,7 +233,12 @@ async function executeTaskAsync(
     );
 
     console.error(`[execute-task] Task ${taskId} completed with status: ${finalStatus}`);
-    deps.registry.updateStatus(taskId, finalStatus);
+    deps.registry.updateStatus(taskId, finalStatus, {
+      output: result.output?.slice(0, 5000),
+      error: result.error,
+      durationMs: result.durationMs,
+      exitCode: result.exitCode,
+    });
 
     // Send completion message to Matrix room if Matrix is enabled and room was created
     console.error(
@@ -306,7 +311,12 @@ async function executeTaskAsync(
       );
     }
 
-    await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
+    const CLEANUP_DELAY_MS = 60_000;
+    setTimeout(() => {
+      deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId).catch((err) => {
+        console.error(`[execute-task] Deferred cleanup failed for task ${taskId}:`, err);
+      });
+    }, CLEANUP_DELAY_MS);
 
     return {
       task_id: taskId,
@@ -334,7 +344,12 @@ async function executeTaskAsync(
       console.error(`Failed to update workspace on error for task ${taskId}:`, workspaceError);
     }
 
-    await deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId);
+    const CLEANUP_DELAY_MS = 60_000;
+    setTimeout(() => {
+      deps.workspace.detachWorkspaceBlock(params.agent_id, workspaceBlockId).catch((err) => {
+        console.error(`[execute-task] Deferred cleanup failed for task ${taskId}:`, err);
+      });
+    }, CLEANUP_DELAY_MS);
 
     // Send failure notification to the calling agent as a system_alert
     try {

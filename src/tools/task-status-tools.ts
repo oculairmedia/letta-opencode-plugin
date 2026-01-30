@@ -25,6 +25,10 @@ export async function getTaskStatus(
   agent_id: string;
   workspace_block_id?: string;
   recent_events: Array<{ timestamp: number; type: string; message: string }>;
+  output?: string;
+  error?: string;
+  duration_ms?: number;
+  exit_code?: number;
 }> {
   const task = deps.registry.getTask(params.task_id);
 
@@ -56,5 +60,9 @@ export async function getTaskStatus(
     agent_id: task.agentId,
     workspace_block_id: task.workspaceBlockId,
     recent_events: recentEvents,
+    output: task.output,
+    error: task.error,
+    duration_ms: task.durationMs,
+    exit_code: task.exitCode,
   };
 }
