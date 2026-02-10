@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "letta-opencode-plugin": {
+      "type": "remote",
+      "url": "http://localhost:3500/mcp",
+      "enabled": true
+    }
+  }
+}

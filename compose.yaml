@@ -1,74 +1,86 @@
 services:
-  letta-opencode-plugin:
-    image: ghcr.io/oculairmedia/letta-opencode-plugin:latest
-    container_name: letta-opencode-plugin
-    pull_policy: always
-    ports:
-      - '${MCP_PORT:-3500}:3500'
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - LETTA_API_URL=${LETTA_API_URL}
-      - LETTA_API_TOKEN=${LETTA_API_TOKEN}
-      - RUNNER_IMAGE=${RUNNER_IMAGE:-letta-opencode-runner:latest}
-      - RUNNER_CPU_LIMIT=${RUNNER_CPU_LIMIT:-2.0}
-      - RUNNER_MEMORY_LIMIT=${RUNNER_MEMORY_LIMIT:-2g}
-      - RUNNER_TIMEOUT_MS=${RUNNER_TIMEOUT_MS:-300000}
-      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-3}
-      - MCP_PORT=${MCP_PORT:-3500}
-      - MCP_HOST=0.0.0.0
-      - DEBUG=${DEBUG:-false}
-      - ENABLE_ASYNC_EXECUTE=${ENABLE_ASYNC_EXECUTE:-true}
-      - ENFORCE_IDEMPOTENCY=${ENFORCE_IDEMPOTENCY:-true}
-      - NODE_ENV=${NODE_ENV:-production}
-      - OPENCODE_SERVER_ENABLED=${OPENCODE_SERVER_ENABLED:-false}
-      - OPENCODE_SERVER_URL=${OPENCODE_SERVER_URL:-http://opencode-server:3100}
-      - MATRIX_ENABLED=${MATRIX_ENABLED:-false}
-      - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
-      - MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}
-      - MATRIX_USER_ID=${MATRIX_USER_ID}
-      - MATRIX_STORAGE_PATH=${MATRIX_STORAGE_PATH:-./.matrix-storage.json}
-      - MATRIX_DEFAULT_HUMAN_OBSERVERS=${MATRIX_DEFAULT_HUMAN_OBSERVERS}
-      - WORKSPACE_BLOCK_LIMIT=${WORKSPACE_BLOCK_LIMIT:-50000}
-      - WORKSPACE_MAX_EVENTS=${WORKSPACE_MAX_EVENTS:-50}
-      - MAX_TASK_FILE_SIZE=${MAX_TASK_FILE_SIZE:-1000000}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /opt/stacks:/opt/stacks
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3500/health']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
-    networks:
-      - letta-network
-      - matrix
+   letta-opencode-plugin:
+     image: ghcr.io/oculairmedia/letta-opencode-plugin:latest
+     container_name: letta-opencode-plugin
+     pull_policy: always
+     ports:
+       - '${MCP_PORT:-3500}:3500'
+     labels:
+       - homepage.group=AI & Automation
+       - homepage.name=Letta OpenCode Plugin
+       - homepage.icon=si-modelcontextprotocol
+       - homepage.href=http://192.168.50.90:3500
+       - homepage.description=Model Context Protocol plugin for OpenCode integration
+     restart: unless-stopped
+     env_file:
+       - .env
+     environment:
+       - LETTA_API_URL=${LETTA_API_URL}
+       - LETTA_API_TOKEN=${LETTA_API_TOKEN}
+       - RUNNER_IMAGE=${RUNNER_IMAGE:-letta-opencode-runner:latest}
+       - RUNNER_CPU_LIMIT=${RUNNER_CPU_LIMIT:-2.0}
+       - RUNNER_MEMORY_LIMIT=${RUNNER_MEMORY_LIMIT:-2g}
+       - RUNNER_TIMEOUT_MS=${RUNNER_TIMEOUT_MS:-300000}
+       - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-3}
+       - MCP_PORT=${MCP_PORT:-3500}
+       - MCP_HOST=0.0.0.0
+       - DEBUG=${DEBUG:-false}
+       - ENABLE_ASYNC_EXECUTE=${ENABLE_ASYNC_EXECUTE:-true}
+       - ENFORCE_IDEMPOTENCY=${ENFORCE_IDEMPOTENCY:-true}
+       - NODE_ENV=${NODE_ENV:-production}
+       - OPENCODE_SERVER_ENABLED=${OPENCODE_SERVER_ENABLED:-false}
+       - OPENCODE_SERVER_URL=${OPENCODE_SERVER_URL:-http://opencode-server:3100}
+       - MATRIX_ENABLED=${MATRIX_ENABLED:-false}
+       - MATRIX_HOMESERVER_URL=${MATRIX_HOMESERVER_URL}
+       - MATRIX_ACCESS_TOKEN=${MATRIX_ACCESS_TOKEN}
+       - MATRIX_USER_ID=${MATRIX_USER_ID}
+       - MATRIX_STORAGE_PATH=${MATRIX_STORAGE_PATH:-./.matrix-storage.json}
+       - MATRIX_DEFAULT_HUMAN_OBSERVERS=${MATRIX_DEFAULT_HUMAN_OBSERVERS}
+       - WORKSPACE_BLOCK_LIMIT=${WORKSPACE_BLOCK_LIMIT:-50000}
+       - WORKSPACE_MAX_EVENTS=${WORKSPACE_MAX_EVENTS:-50}
+       - MAX_TASK_FILE_SIZE=${MAX_TASK_FILE_SIZE:-1000000}
+     volumes:
+       - /var/run/docker.sock:/var/run/docker.sock
+       - /opt/stacks:/opt/stacks
+     healthcheck:
+       test: ['CMD', 'curl', '-f', 'http://localhost:3500/health']
+       interval: 30s
+       timeout: 10s
+       retries: 3
+       start_period: 5s
+     networks:
+       - letta-network
+       - matrix
 
-  opencode-server:
-    image: ghcr.io/oculairmedia/letta-opencode-plugin-opencode-server:latest
-    container_name: opencode-server
-    pull_policy: always
-    ports:
-      - '3111:3100'
-    restart: unless-stopped
-    environment:
-      - MATRIX_API_URL=http://letta-opencode-plugin:3500/matrix
-    volumes:
-      - opencode-workspaces:/workspace
-      - /root/.config/opencode:/root/.config/opencode:ro
-      - /root/.local/share/opencode:/root/.local/share/opencode
-      - /root/.cache/opencode:/root/.cache/opencode
-      - /opt/stacks:/opt/stacks:ro
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3100/config']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    networks:
-      - letta-network
+   opencode-server:
+     image: ghcr.io/oculairmedia/letta-opencode-plugin-opencode-server:latest
+     container_name: opencode-server
+     pull_policy: always
+     ports:
+       - '3111:3100'
+     labels:
+       - homepage.group=Development Tools
+       - homepage.name=OpenCode Server
+       - homepage.icon=si-opencode
+       - homepage.href=http://192.168.50.90:3111
+       - homepage.description=OpenCode development environment and workspace manager
+     restart: unless-stopped
+     environment:
+       - MATRIX_API_URL=http://letta-opencode-plugin:3500/matrix
+     volumes:
+       - opencode-workspaces:/workspace
+       - /root/.config/opencode:/root/.config/opencode:ro
+       - /root/.local/share/opencode:/root/.local/share/opencode
+       - /root/.cache/opencode:/root/.cache/opencode
+       - /opt/stacks:/opt/stacks:ro
+     healthcheck:
+       test: ['CMD', 'curl', '-f', 'http://localhost:3100/config']
+       interval: 30s
+       timeout: 10s
+       retries: 3
+       start_period: 10s
+     networks:
+       - letta-network
 
 volumes:
   opencode-workspaces:

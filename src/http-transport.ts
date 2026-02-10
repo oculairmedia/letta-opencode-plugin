@@ -127,8 +127,8 @@ export async function runHTTP(server: Server): Promise<HTTPServerHandle> {
       'http://localhost',
       'http://127.0.0.1',
       'http://192.168.50.90',
-      'https://letta.oculair.ca',
-      'https://letta2.oculair.ca',
+      'http://192.168.50.90:8289',
+      'http://192.168.50.90:8289',
     ];
 
     if (origin && !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
@@ -151,8 +151,8 @@ export async function runHTTP(server: Server): Promise<HTTPServerHandle> {
         'http://localhost',
         'http://127.0.0.1',
         'http://192.168.50.90',
-        'https://letta.oculair.ca',
-        'https://letta2.oculair.ca',
+        'http://192.168.50.90:8289',
+        'http://192.168.50.90:8289',
       ],
       credentials: true,
     })

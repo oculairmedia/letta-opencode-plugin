@@ -39,7 +39,7 @@ function log(...args: unknown[]): void {
 }
 
 const letta = new LettaClient({
-  baseUrl: process.env.LETTA_API_URL || 'https://letta.oculair.ca',
+  baseUrl: process.env.LETTA_API_URL || 'http://192.168.50.90:8289',
   token: process.env.LETTA_API_TOKEN || '',
   timeout: 30000,
   maxRetries: 3,
