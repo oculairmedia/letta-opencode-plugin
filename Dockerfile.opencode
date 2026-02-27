@@ -11,7 +11,7 @@ RUN apt-get update && \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g opencode-ai@latest
+RUN npm install -g opencode-ai@1.2.15
 
 RUN groupadd -r opencode && useradd -r -g opencode opencode
 RUN mkdir -p /home/opencode && chown -R opencode:opencode /home/opencode /workspace

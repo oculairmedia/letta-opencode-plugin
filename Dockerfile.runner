@@ -12,7 +12,7 @@ RUN apt-get update && \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g opencode-ai@0.15.0
+RUN npm install -g opencode-ai@1.2.15
 
 RUN groupadd -r opencode && \
     useradd -r -g opencode -m -d /home/opencode opencode && \

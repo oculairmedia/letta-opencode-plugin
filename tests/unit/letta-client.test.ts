@@ -4,7 +4,7 @@ import { LettaClient } from '../../src/letta-client.js';
 // Mock the SDK client
 jest.mock('@letta-ai/letta-client', () => {
   return {
-    LettaClient: jest.fn().mockImplementation(() => ({
+    Letta: jest.fn().mockImplementation(() => ({
       agents: {
         retrieve: jest.fn(),
         messages: {
@@ -19,13 +19,13 @@ jest.mock('@letta-ai/letta-client', () => {
       },
       blocks: {
         create: jest.fn(),
-        modify: jest.fn(),
+        update: jest.fn(),
       },
     })),
   };
 });
 
-import { LettaClient as SDKLettaClient } from '@letta-ai/letta-client';
+import { Letta } from '@letta-ai/letta-client';
 
 describe('LettaClient', () => {
   let client: LettaClient;
@@ -40,7 +40,7 @@ describe('LettaClient', () => {
     });
 
     // Get the mock instance
-    mockSDKClient = (SDKLettaClient as jest.Mock).mock.results[0]?.value;
+    mockSDKClient = (Letta as unknown as jest.Mock).mock.results[0]?.value;
   });
 
   describe('Agent Operations', () => {
@@ -54,9 +54,9 @@ describe('LettaClient', () => {
       expect(agent?.id).toBe('agent-123');
       expect(mockSDKClient.agents.retrieve).toHaveBeenCalledWith(
         'agent-123',
-        undefined,
+        null,
         expect.objectContaining({
-          timeoutInSeconds: 30,
+          timeout: 30000,
           maxRetries: 3,
         })
       );
@@ -91,9 +91,9 @@ describe('LettaClient', () => {
       expect(blocks).toHaveLength(2);
       expect(mockSDKClient.agents.blocks.list).toHaveBeenCalledWith(
         'agent-123',
-        undefined,
+        null,
         expect.objectContaining({
-          timeoutInSeconds: 30,
+          timeout: 30000,
           maxRetries: 3,
         })
       );
@@ -114,14 +114,14 @@ describe('LettaClient', () => {
 
     it('should update memory block', async () => {
       const mockBlock = { id: 'block-1', label: 'Block 1', value: 'updated' };
-      mockSDKClient.blocks.modify.mockResolvedValueOnce(mockBlock);
+      mockSDKClient.blocks.update.mockResolvedValueOnce(mockBlock);
 
       const block = await client.updateMemoryBlock('agent-123', 'block-1', {
         value: 'updated',
       });
 
       expect(block.value).toBe('updated');
-      expect(mockSDKClient.blocks.modify).toHaveBeenCalledWith(
+      expect(mockSDKClient.blocks.update).toHaveBeenCalledWith(
         'block-1',
         { value: 'updated' },
         expect.any(Object)
@@ -133,11 +133,9 @@ describe('LettaClient', () => {
 
       await client.attachMemoryBlock('agent-123', { block_id: 'block-1' });
 
-      expect(mockSDKClient.agents.blocks.attach).toHaveBeenCalledWith(
-        'agent-123',
-        'block-1',
-        expect.any(Object)
-      );
+      expect(mockSDKClient.agents.blocks.attach).toHaveBeenCalledWith('block-1', {
+        agent_id: 'agent-123',
+      });
     });
 
     it('should detach memory block', async () => {
@@ -145,11 +143,9 @@ describe('LettaClient', () => {
 
       await client.detachMemoryBlock('agent-123', 'block-1');
 
-      expect(mockSDKClient.agents.blocks.detach).toHaveBeenCalledWith(
-        'agent-123',
-        'block-1',
-        expect.any(Object)
-      );
+      expect(mockSDKClient.agents.blocks.detach).toHaveBeenCalledWith('block-1', {
+        agent_id: 'agent-123',
+      });
     });
   });
 
@@ -200,7 +196,7 @@ describe('LettaClient', () => {
           messages: [
             {
               role: 'user',
-              content: [{ type: 'text', text: 'Hello' }],
+              content: 'Hello',
             },
           ],
         },
@@ -236,9 +232,9 @@ describe('LettaClient', () => {
         token: 'test-key',
       });
 
-      expect(SDKLettaClient).toHaveBeenCalledWith({
-        baseUrl: 'https://api.example.com',
-        token: 'test-key',
+      expect(Letta).toHaveBeenCalledWith({
+        baseURL: 'https://api.example.com',
+        apiKey: 'test-key',
       });
     });
 
@@ -261,8 +257,8 @@ describe('LettaClient', () => {
       });
 
       // Get the new mock instance
-      const newMockSDKClient = (SDKLettaClient as jest.Mock).mock.results[
-        (SDKLettaClient as jest.Mock).mock.results.length - 1
+      const newMockSDKClient = (Letta as unknown as jest.Mock).mock.results[
+        (Letta as unknown as jest.Mock).mock.results.length - 1
       ]?.value as any;
       newMockSDKClient.agents.retrieve.mockResolvedValueOnce({ id: 'agent-123' });
 
@@ -270,9 +266,9 @@ describe('LettaClient', () => {
 
       expect(newMockSDKClient.agents.retrieve).toHaveBeenCalledWith(
         'agent-123',
-        undefined,
+        null,
         expect.objectContaining({
-          timeoutInSeconds: 60,
+          timeout: 60000,
           maxRetries: 5,
         })
       );

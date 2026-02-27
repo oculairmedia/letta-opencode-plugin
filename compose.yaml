@@ -6,9 +6,9 @@ services:
      ports:
        - '${MCP_PORT:-3500}:3500'
      labels:
-       - homepage.group=AI & Automation
+       - homepage.group=Letta Ecosystem
        - homepage.name=Letta OpenCode Plugin
-       - homepage.icon=si-modelcontextprotocol
+        - homepage.icon=mdi-connection
        - homepage.href=http://192.168.50.90:3500
        - homepage.description=Model Context Protocol plugin for OpenCode integration
      restart: unless-stopped
@@ -61,7 +61,7 @@ services:
      labels:
        - homepage.group=Development Tools
        - homepage.name=OpenCode Server
-       - homepage.icon=si-opencode
+       - homepage.icon=mdi-code-braces
        - homepage.href=http://192.168.50.90:3111
        - homepage.description=OpenCode development environment and workspace manager
      restart: unless-stopped

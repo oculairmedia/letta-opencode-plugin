@@ -1,4 +1,4 @@
-import { LettaClient as SDKLettaClient } from '@letta-ai/letta-client';
+import { Letta } from '@letta-ai/letta-client';
 import type {
   LettaConfig,
   LettaAgent,
@@ -11,22 +11,22 @@ import type {
 } from './types/letta.js';
 
 export class LettaClient {
-  private client: SDKLettaClient;
+  private client: Letta;
   private timeout: number;
   private maxRetries: number;
 
   constructor(config: LettaConfig) {
-    this.client = new SDKLettaClient({
-      baseUrl: config.baseUrl,
-      token: config.token,
+    this.client = new Letta({
+      baseURL: config.baseUrl,
+      apiKey: config.token || undefined,
     });
     this.timeout = config.timeout || 30000;
     this.maxRetries = config.maxRetries || 3;
   }
 
   async getAgent(agentId: string): Promise<LettaAgent> {
-    const agent = await this.client.agents.retrieve(agentId, undefined, {
-      timeoutInSeconds: this.timeout / 1000,
+    const agent = await this.client.agents.retrieve(agentId, null, {
+      timeout: this.timeout,
       maxRetries: this.maxRetries,
     });
     return agent as unknown as LettaAgent;
@@ -37,7 +37,7 @@ export class LettaClient {
       agentId,
       { limit },
       {
-        timeoutInSeconds: this.timeout / 1000,
+        timeout: this.timeout,
         maxRetries: this.maxRetries,
       }
     );
@@ -51,12 +51,12 @@ export class LettaClient {
         messages: [
           {
             role: request.role,
-            content: [{ type: 'text', text: request.content }],
+            content: request.content,
           },
         ],
       },
       {
-        timeoutInSeconds: this.timeout / 1000,
+        timeout: this.timeout,
         maxRetries: this.maxRetries,
       }
     );
@@ -76,7 +76,7 @@ export class LettaClient {
         limit: request.limit,
       },
       {
-        timeoutInSeconds: this.timeout / 1000,
+        timeout: this.timeout,
         maxRetries: this.maxRetries,
       }
     );
@@ -89,13 +89,13 @@ export class LettaClient {
     request: UpdateMemoryBlockRequest
   ): Promise<LettaMemoryBlock> {
     console.log(`[letta-client] Updating memory block ${blockId} for agent ${agentId}`);
-    const block = await this.client.blocks.modify(
+    const block = await this.client.blocks.update(
       blockId,
       {
         value: request.value,
       },
       {
-        timeoutInSeconds: this.timeout / 1000,
+        timeout: this.timeout,
         maxRetries: this.maxRetries,
       }
     );
@@ -103,22 +103,20 @@ export class LettaClient {
   }
 
   async attachMemoryBlock(agentId: string, request: AttachMemoryBlockRequest): Promise<void> {
-    await this.client.agents.blocks.attach(agentId, request.block_id, {
-      timeoutInSeconds: this.timeout / 1000,
-      maxRetries: this.maxRetries,
+    await this.client.agents.blocks.attach(request.block_id, {
+      agent_id: agentId,
     });
   }
 
   async detachMemoryBlock(agentId: string, blockId: string): Promise<void> {
-    await this.client.agents.blocks.detach(agentId, blockId, {
-      timeoutInSeconds: this.timeout / 1000,
-      maxRetries: this.maxRetries,
+    await this.client.agents.blocks.detach(blockId, {
+      agent_id: agentId,
     });
   }
 
   async listMemoryBlocks(agentId: string): Promise<LettaMemoryBlock[]> {
-    const blocks = await this.client.agents.blocks.list(agentId, undefined, {
-      timeoutInSeconds: this.timeout / 1000,
+    const blocks = await this.client.agents.blocks.list(agentId, null, {
+      timeout: this.timeout,
       maxRetries: this.maxRetries,
     });
     return blocks as unknown as LettaMemoryBlock[];
